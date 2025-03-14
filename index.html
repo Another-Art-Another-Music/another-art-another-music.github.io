@@ -11,10 +11,8 @@
             font-family: Arial, sans-serif;
             font-size: 120%;
             padding: 20px;
-	    /*
-	    background: black url('media/logo/aaam-white-on-black.opt.svg?!23') no-repeat center center fixed;
-	    */
         }
+
         .center {
             text-align: center;
         }
@@ -24,18 +22,24 @@
 	    font-style: italic;
         }
         h1 {
+	    font-size: 180%;
             text-align: center;
 	    margin: 0px;
+	}
+        h2 {
+            color: #aabbaa;
+            padding-top: 20px;
+	    font-size: 120%;
         }
         iframe {
             border-radius: 10px;
             box-shadow: 0px 0px 20px rgba(255, 255, 255, 0.3);
         }
         a {
-            color: #00FFFF;
+            color: #00aaFF;
 	    /*
-            font-weight: bold;
             text-decoration: none;
+            font-weight: bold;
             transition: color 0.3s ease-in-out;
 	    */
         }
@@ -43,10 +47,6 @@
             color: #FF00FF;
             text-decoration: underline;
         }
-        h2 {
-            color: #FFaaFF;
-            padding-top: 20px;
-	}
 
         .header {
             display: flex;
@@ -54,6 +54,7 @@
             justify-content: center;
             padding: 20px;
         }
+
         .logo {
             width: 120px; /* Adjust logo size */
             height: auto;
@@ -63,6 +64,28 @@
             width: 60%; /* Content is 80% of the screen width */
             margin: auto; /* Center the content */
         }
+
+@media (max-width: 768px) {
+	
+        .container {
+            width: 100%;
+            margin: auto;
+        }
+
+        h1 {
+	    font-size: 110%;
+	}
+
+        h2 {
+	    font-size: 105%;
+	}
+
+        .logo {
+            width: 70px; /* Adjust logo size */
+            height: auto;
+        }
+
+}
 
     </style>
 </head>
@@ -101,7 +124,10 @@
 <li><a href="https://www.youtube.com/@another-art-another-music">www.youtube.com/@another-art-another-music</a>
 <li><a href="https://aaam.bandcamp.com/">aaam.bandcamp.com</a>
 <li><a href="https://soundcloud.com/aaam-dogon">soundcloud.com/aaam-dogon</a>
-<li><a href="https://another-art-another-music.pages.dev/">another-art-another-music - mirror</a>
+<li>
+<a href="https://another-art-another-music.pages.dev/">Another Art Another Music</a> |
+<a href="https://another-art-another-music.github.io/">AAAM</a> |
+<a href="https://another-art-another-music.github.io/dogon/">Dogon</a>
 </ul>
 
 <!--
@@ -169,3 +195,24 @@
     </div>
 
 </div>
+
+
+<script>
+var i=0;
+setInterval(() => {
+
+    var d = document.querySelectorAll("iframe");
+
+d.forEach(num => {
+    let button = num.querySelector('button[aria-label="Yes"]');
+    console.log('D ', num, button);
+    if (button) button.click();
+
+});
+
+    console.log("tik",i++);
+
+    let button = document.querySelector('button[aria-label="Yes"]');
+    if (button) button.click();
+}, 5000);
+</script>
