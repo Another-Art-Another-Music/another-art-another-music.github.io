@@ -168,6 +168,8 @@
         let playnames = [];
         let currentTrackIndex = 0;
         let coverMap = {};
+	let format="opus";
+	//format="flac";
 
         async function fetchAudioFiles() {
             try {
@@ -178,15 +180,15 @@
                     const assets = release.assets || [];
                     
                     assets.forEach(asset => {
-                        if (asset.name.endsWith(".opus")) {
-                            const baseName = asset.name.replace(/\.opus$/, "");
+                        if (asset.name.endsWith("."+format)) {
+                            const baseName = asset.name.replace(/\..+?$/, "");
                             
                             playlist.push(asset.browser_download_url);
                             
                             assets.forEach(imgAsset => {
                                 if (imgAsset.name.startsWith(baseName) && imgAsset.name.match(/\.(jpg|jpeg|png)$/)) {
                                     coverMap[asset.browser_download_url] = imgAsset.browser_download_url;
-                            	    playnames.push(imgAsset.name);
+                            	    playnames.push(baseName);
                                 }
                             });
                             
