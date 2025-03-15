@@ -1,0 +1,20 @@
+<svg height="1052.362179" viewBox="0 0 210 297" width="744.09447" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<path d="m207.318,150.9871a100.2724,100.2724 0 1,0 -200.5447,0 100.2724,100.2724 0 1,0 200.5447,0"/>
+<g transform="matrix(1.60279,0,0,1.60279,-91.18743,-53.85205)">
+<g transform="translate(-22.0608,4.3819)">
+<g fill="none" stroke="#fff" stroke-width="6.4282" transform="rotate(180,128.853,125.1375)">
+<g transform="translate(-.0843)">
+<g id="g1242" transform="translate(-7.3376,3.6382)">
+<path d="m117.7463,129.1356a25.1522,25.1522 0 0,1 -12.7022,21.8548 25.1522,25.1522 0 0,1 -25.2771-.2192 25.1522,25.1522 0 0,1 -12.3213-22.0718" fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="5.841"/>
+<path d="m-107.4751-124.8859a5.8537,5.8537 0 0,1 -6.111,1.7166 5.8537,5.8537 0 0,1 -4.0823-4.8607" fill="none" id="path323-5" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="5.841" transform="scale(-1)"/>
+<path d="m93.9533,146.6316a5.8537,5.8537 0 0,1 -6.0131-5.1171" fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="5.841"/>
+<path d="m107.2655,124.6896v-63.962" fill="#fff" stroke="#fff" stroke-linecap="round" stroke-linejoin="bevel" stroke-width="5.5575"/>
+<path d="m77.8993,124.7539v-51.8753" fill="#fff" stroke="#fff" stroke-linecap="round" stroke-linejoin="bevel" stroke-width="5.5575"/>
+<use stroke-width="6.2256" transform="matrix(-1,0,0,1,185.20349,-3.3265194e-8)" xlink:href="#path323-5"/>
+</g>
+<use transform="rotate(180,112.0494,126.8551)" xlink:href="#g1242"/>
+</g>
+</g>
+</g>
+</g>
+</svg>
