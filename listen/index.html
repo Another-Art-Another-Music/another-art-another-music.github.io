@@ -137,11 +137,15 @@
 	    border: 0px solid red;
 	}
 
-	#cover-art:hover {
-            /*
+	.logo:hover {
 	    filter: drop-shadow(0 0 10px rgba(250, 200, 255, 0.8));
-	    */
 	}
+
+.current-track {
+    color: #FF00FF; /* Highlight color */
+    font-weight: bold;
+    text-decoration: underline;
+}
 
     </style>
 </head>
@@ -281,12 +285,25 @@
                 document.title = 'AAAM ' + playnames[currentTrackIndex];
                 updateCoverArt(playlist[currentTrackIndex]);
                 //extractMetadata(playlist[currentTrackIndex]);
+	        highlightCurrentTrack();
 	}
+
+function highlightCurrentTrack() {
+    document.querySelectorAll("#audio-list a").forEach(link => {
+        link.classList.remove("current-track");
+    });
+
+    let currentLink = document.querySelector(`#audio-list a[href="${playlist[currentTrackIndex]}"]`);
+    if (currentLink) {
+        currentLink.classList.add("current-track");
+    }
+}
 
         function playTrack(index) {
             if (index >= 0 ) {
 		prepareTrack(index)
                 audioPlayer.play();
+	        highlightCurrentTrack();
             }
         }
 
