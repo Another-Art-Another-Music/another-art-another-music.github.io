@@ -26,7 +26,7 @@
             text-align: center;
 	    margin: 0px;
 	}
-        h2 {
+        h2,h3 {
             color: #aabbaa;
             padding-top: 20px;
 	    font-size: 120%;
@@ -48,12 +48,20 @@
             text-decoration: underline;
         }
 
+	.audio-meta .lbl {
+	    color: #666666;
+	    border: 0px solid red;
+	    display: inline-block;
+	    min-width: 80px;
+	    text-align: right;
+	}
+
         .header {
             display: flex;
             align-items: center;
             justify-content: center;
             padding: 20px;
-	    clear: both;
+            clear: both;
         }
 
         .logo {
@@ -66,8 +74,9 @@
             margin: auto; /* Center the content */
         }
 
+
 @media (max-width: 768px) {
-	
+
         .container {
             width: 100%;
             margin: auto;
@@ -77,7 +86,7 @@
 	    font-size: 110%;
 	}
 
-        h2 {
+        h2,h3 {
 	    font-size: 105%;
 	}
 
@@ -135,12 +144,15 @@
 
     <h2>Listen AAAM music - original source</h2>
 
-<div>
+<div class="audio-player">
     <audio id="audio-player" style="width: 100%; padding-bottom: 20px" controls autoplay></audio>
     <img id="cover-art" src="" alt="Cover Art" style="max-width: 300px; display: none; float: right;" />
-    <div>Title: <span id="track-title">N/A</span></div>
-    <div>Artist: <span id="track-artist">AAAM, Dogon</span></div>
-    <div>Album: <span id="track-album">Single</span></div>
+    <div class="audio-meta">
+    <div><span class=lbl>Title:</span> <span id="track-title">N/A</span></div>
+    <div><span class=lbl>Artist:</span> <span id="track-artist">AAAM, Dogon</span></div>
+    <div><span class=lbl>Album:</span> <span id="track-album">Single</span></div>
+    </div>
+    <h3>Music list</h3>
     <ul id="audio-list"></ul>
 </div>
 
