@@ -38,7 +38,6 @@
         a {
             color: #00aaFF;
 	    /*
-            text-decoration: none;
             font-weight: bold;
             transition: color 0.3s ease-in-out;
 	    */
@@ -97,6 +96,36 @@
 
 }
 
+	#audio-player{
+
+	}
+
+	.audio-ui{
+	    clean: both;
+	    padding-bottom: 10px;
+	    width: 100%;
+	    border: 0px solid red;
+	}
+
+	#audio-player {
+	    width: 100%;
+	}
+	.audio-ui div {
+	    float: right;
+	    border: 1px solid #111;
+	    padding: 5px;
+	    display: inline-block;
+	    border-radius: 2px;
+	}
+	.audio-ui div:hover {
+	    cursor: pointer;
+	    border: 1px solid #555;
+	}
+	#audio-list a{
+            text-decoration: none;
+	    text-transform: capitalize;
+	}
+	
     </style>
 </head>
 <body>
@@ -145,13 +174,21 @@
     <h2>Listen AAAM music - original source</h2>
 
 <div class="audio-player">
-    <audio id="audio-player" style="width: 100%; padding-bottom: 20px" controls autoplay></audio>
+    <div class=audio-ui>
+    <div id=audioNext onclick="playNext()">⏭️</div>
+    <div id=audioPrev onclick="playPrev()">⏮️</div>
+    <audio id="audio-player" controls autoplay></audio>
+    </div>
+
     <img id="cover-art" src="" alt="Cover Art" style="max-width: 300px; display: none; float: right;" />
+
     <div class="audio-meta">
     <div><span class=lbl>Title:</span> <span id="track-title">N/A</span></div>
     <div><span class=lbl>Artist:</span> <span id="track-artist">AAAM, Dogon</span></div>
     <div><span class=lbl>Album:</span> <span id="track-album">Single</span></div>
+    <div><span class=lbl>Format:</span> <span id="trackFormat">...</span></div>
     </div>
+
     <h3>Music list</h3>
     <ul id="audio-list"></ul>
 </div>
@@ -170,6 +207,7 @@
         let coverMap = {};
 	let format="opus";
 	//format="flac";
+	//format="ogg";
 
         async function fetchAudioFiles() {
             try {
@@ -178,17 +216,16 @@
                 
                 releases.forEach(release => {
                     const assets = release.assets || [];
-                    
                     assets.forEach(asset => {
                         if (asset.name.endsWith("."+format)) {
                             const baseName = asset.name.replace(/\..+?$/, "");
-                            
+                            const baseName2 = baseName.replace(/\-(album|aaam|dogon)/ig, "").replace(/\-/g, " ");
                             playlist.push(asset.browser_download_url);
                             
                             assets.forEach(imgAsset => {
                                 if (imgAsset.name.startsWith(baseName) && imgAsset.name.match(/\.(jpg|jpeg|png)$/)) {
                                     coverMap[asset.browser_download_url] = imgAsset.browser_download_url;
-                            	    playnames.push(baseName);
+                                    playnames.push(baseName2);
                                 }
                             });
                             
@@ -196,7 +233,7 @@
                             const link = document.createElement("a");
                             
                             link.href = asset.browser_download_url;
-                            link.textContent = asset.name;
+                            link.textContent = baseName2; // asset.name;
                             link.addEventListener("click", (e) => {
                                 e.preventDefault();
                                 playTrack(playlist.indexOf(asset.browser_download_url));
@@ -217,13 +254,15 @@
         }
         
         function playTrack(index) {
-            if (index >= 0 && index < playlist.length) {
-                currentTrackIndex = index;
+            if (index >= 0 ) {
+                currentTrackIndex = index % playlist.length;
                 audioPlayer.src = playlist[currentTrackIndex];
                 audioPlayer.play();
 		trackTitle.textContent = playnames[currentTrackIndex];
+		trackFormat.textContent = format;
+		console.log('PLAY', currentTrackIndex, playnames[currentTrackIndex]);
                 updateCoverArt(playlist[currentTrackIndex]);
-                extractMetadata(playlist[currentTrackIndex]);
+                //extractMetadata(playlist[currentTrackIndex]);
             }
         }
 
@@ -236,31 +275,19 @@
             }
         }
 
-        function extractMetadata(audioUrl) {
-            fetch(audioUrl)
-                .then(response => response.blob())
-                .then(blob => {
-                    const reader = new FileReader();
-                    reader.readAsArrayBuffer(blob);
-                    reader.onload = () => {
-                        const context = new AudioContext();
-                        context.decodeAudioData(reader.result, (buffer) => {
-                            const metadata = buffer.metadata || {};
-                            trackTitle.textContent = metadata.title || "Unknown Title";
-                            trackArtist.textContent = metadata.artist || "Unknown Artist";
-                            trackAlbum.textContent = metadata.album || "Unknown Album";
-                        });
-                    };
-                })
-                .catch(error => console.error("Error extracting metadata:", error));
-        }
 
+	function playNext(){
+	playTrack( currentTrackIndex + 1 );
+	}
+	function playPrev(){
+	playTrack( currentTrackIndex - 1 );
+	}
         audioPlayer.addEventListener("ended", () => {
-            if (currentTrackIndex + 1 < playlist.length) {
-                playTrack(currentTrackIndex + 1);
-            }
+//            if (currentTrackIndex + 1 < playlist.length) {
+		    playNext();
+//            }
         });
-        
+
         fetchAudioFiles();
     </script>
 
