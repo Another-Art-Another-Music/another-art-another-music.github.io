@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Another Art Another Music - AAAM - Play </title>
+    <style>
+        body {
+            background-color: black;
+            color: white;
+            font-family: Arial, sans-serif;
+            font-size: 120%;
+            padding: 20px;
+        }
+
+        .center {
+            text-align: center;
+        }
+        .slogan {
+            text-align: center;
+            color: gray;
+	    font-style: italic;
+        }
+        h1 {
+	    font-size: 180%;
+            text-align: center;
+	    margin: 0px;
+	}
+        h2 {
+            color: #aabbaa;
+            padding-top: 20px;
+	    font-size: 120%;
+        }
+        iframe {
+            border-radius: 10px;
+            box-shadow: 0px 0px 20px rgba(255, 255, 255, 0.3);
+        }
+        a {
+            color: #00aaFF;
+	    /*
+            text-decoration: none;
+            font-weight: bold;
+            transition: color 0.3s ease-in-out;
+	    */
+        }
+        a:hover {
+            color: #FF00FF;
+            text-decoration: underline;
+        }
+
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .logo {
+            width: 120px; /* Adjust logo size */
+            height: auto;
+        }
+
+        .container {
+            width: 60%; /* Content is 80% of the screen width */
+            margin: auto; /* Center the content */
+        }
+
+@media (max-width: 768px) {
+	
+        .container {
+            width: 100%;
+            margin: auto;
+        }
+
+        h1 {
+	    font-size: 110%;
+	}
+
+        h2 {
+	    font-size: 105%;
+	}
+
+        .logo {
+            width: 70px; /* Adjust logo size */
+            height: auto;
+        }
+
+}
+
+    </style>
+</head>
+<body>
+<div class=container>
+
+    <div class="header">
+<a href="https://another-art-another-music.github.io/" title=another-art-another-music>
+<svg class="logo" viewBox="0 0 300 300" xmlns="http://www.w3.org/2000/svg">
+<g transform="matrix(1.60279,0,0,1.60279,-91.18743,-53.85205)">
+<g transform="translate(-22.0608,4.3819)">
+<g fill="none" stroke="#fff" stroke-width="6.4282" transform="rotate(180,128.853,125.1375)">
+<g transform="translate(-.0843)">
+<g id="g1242" transform="translate(-7.3376,3.6382)">
+<path d="m117.7463,129.1356a25.1522,25.1522 0 0,1 -12.7022,21.8548 25.1522,25.1522 0 0,1 -25.2771-.2192 25.1522,25.1522 0 0,1 -12.3213-22.0718" fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="5.841"/>
+<path d="m-107.4751-124.8859a5.8537,5.8537 0 0,1 -6.111,1.7166 5.8537,5.8537 0 0,1 -4.0823-4.8607" fill="none" id="path323-5" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="5.841" transform="scale(-1)"/>
+<path d="m93.9533,146.6316a5.8537,5.8537 0 0,1 -6.0131-5.1171" fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="5.841"/>
+<path d="m107.2655,124.6896v-63.962" fill="#fff" stroke="#fff" stroke-linecap="round" stroke-linejoin="bevel" stroke-width="5.5575"/>
+<path d="m77.8993,124.7539v-51.8753" fill="#fff" stroke="#fff" stroke-linecap="round" stroke-linejoin="bevel" stroke-width="5.5575"/>
+<use stroke-width="6.2256" transform="matrix(-1,0,0,1,185.20349,-3.3265194e-8)" xlink:href="#path323-5"/>
+</g>
+<use transform="rotate(180,112.0494,126.8551)" xlink:href="#g1242"/>
+</g>
+</g>
+</g>
+</g>
+</svg>
+</a>
+    <div>
+    <h1>Another Art Another Music</h1>
+    <div class=slogan>No format, just feeling</div>
+    </div>
+    </div>
+
+<ul>
+<li><a href="https://www.youtube.com/@another-art-another-music">www.youtube.com/@another-art-another-music</a>
+<li><a href="https://aaam.bandcamp.com/">aaam.bandcamp.com</a>
+<li><a href="https://soundcloud.com/aaam-dogon">soundcloud.com/aaam-dogon</a>
+<li>
+<a href="https://another-art-another-music.pages.dev/">Another Art Another Music</a> |
+<a href="https://another-art-another-music.github.io/">AAAM</a> |
+<a href="https://another-art-another-music.github.io/dogon/">Dogon</a>
+</ul>
+
+
+    <h2>Play AAAM music</h2>
+
+    <div>
+    <img id="cover-art" src="" alt="Cover Art" style="max-width: 300px; display: none; float: right;">
+    <div>Title: <span id="track-title">N/A<span></div>
+    <div>Artist: <span id="track-artist">N/A<span></div>
+    <div>Album: <span id="track-album">N/A<span></div>
+    </div>
+    <ul id="audio-list"></ul>
+    <audio id="audio-player" style="width: 100%" controls autoplay></audio>
+
+    <script>
+        const repoApiUrl = "https://api.github.com/repos/Another-Art-Another-Music/music/releases";
+        const audioList = document.getElementById("audio-list");
+        const audioPlayer = document.getElementById("audio-player");
+        const coverArt = document.getElementById("cover-art");
+        const trackTitle = document.getElementById("track-title");
+        const trackArtist = document.getElementById("track-artist");
+        const trackAlbum = document.getElementById("track-album");
+        let playlist = [];
+        let playnames = [];
+        let currentTrackIndex = 0;
+        let coverMap = {};
+
+        async function fetchAudioFiles() {
+            try {
+                const response = await fetch(repoApiUrl);
+                const releases = await response.json();
+                
+                releases.forEach(release => {
+                    const assets = release.assets || [];
+                    
+                    assets.forEach(asset => {
+                        if (asset.name.endsWith(".opus")) {
+                            const baseName = asset.name.replace(/\.opus$/, "");
+                            
+                            playlist.push(asset.browser_download_url);
+                            
+                            assets.forEach(imgAsset => {
+                                if (imgAsset.name.startsWith(baseName) && imgAsset.name.match(/\.(jpg|jpeg|png)$/)) {
+                                    coverMap[asset.browser_download_url] = imgAsset.browser_download_url;
+                            	    playnames.push(imgAsset.name);
+                                }
+                            });
+                            
+                            const listItem = document.createElement("li");
+                            const link = document.createElement("a");
+                            
+                            link.href = asset.browser_download_url;
+                            link.textContent = asset.name;
+                            link.addEventListener("click", (e) => {
+                                e.preventDefault();
+                                playTrack(playlist.indexOf(asset.browser_download_url));
+                            });
+                            
+                            listItem.appendChild(link);
+                            audioList.appendChild(listItem);
+                        }
+                    });
+                });
+                
+                if (playlist.length > 0) {
+                    playTrack(0);
+                }
+            } catch (error) {
+                console.error("Error fetching audio files:", error);
+            }
+        }
+        
+        function playTrack(index) {
+            if (index >= 0 && index < playlist.length) {
+                currentTrackIndex = index;
+                audioPlayer.src = playlist[currentTrackIndex];
+                audioPlayer.play();
+		trackTitle.textContent = playnames[currentTrackIndex];
+                updateCoverArt(playlist[currentTrackIndex]);
+                extractMetadata(playlist[currentTrackIndex]);
+            }
+        }
+
+        function updateCoverArt(audioUrl) {
+            if (coverMap[audioUrl]) {
+                coverArt.src = coverMap[audioUrl];
+                coverArt.style.display = "block";
+            } else {
+                coverArt.style.display = "none";
+            }
+        }
+
+        function extractMetadata(audioUrl) {
+            fetch(audioUrl)
+                .then(response => response.blob())
+                .then(blob => {
+                    const reader = new FileReader();
+                    reader.readAsArrayBuffer(blob);
+                    reader.onload = () => {
+                        const context = new AudioContext();
+                        context.decodeAudioData(reader.result, (buffer) => {
+                            const metadata = buffer.metadata || {};
+                            trackTitle.textContent = metadata.title || "Unknown Title";
+                            trackArtist.textContent = metadata.artist || "Unknown Artist";
+                            trackAlbum.textContent = metadata.album || "Unknown Album";
+                        });
+                    };
+                })
+                .catch(error => console.error("Error extracting metadata:", error));
+        }
+
+        audioPlayer.addEventListener("ended", () => {
+            if (currentTrackIndex + 1 < playlist.length) {
+                playTrack(currentTrackIndex + 1);
+            }
+        });
+        
+        fetchAudioFiles();
+    </script>
+
+<!-- FOOTER -->
+
+    <header class="header">
+<a href="https://another-art-another-music.github.io/" title=another-art-another-music>
+<svg class="logo" viewBox="0 0 300 300" xmlns="http://www.w3.org/2000/svg">
+<g transform="matrix(1.60279,0,0,1.60279,-91.18743,-53.85205)">
+<g transform="translate(-22.0608,4.3819)">
+<g fill="none" stroke="#fff" stroke-width="6.4282" transform="rotate(180,128.853,125.1375)">
+<g transform="translate(-.0843)">
+<g id="g1242" transform="translate(-7.3376,3.6382)">
+<path d="m117.7463,129.1356a25.1522,25.1522 0 0,1 -12.7022,21.8548 25.1522,25.1522 0 0,1 -25.2771-.2192 25.1522,25.1522 0 0,1 -12.3213-22.0718" fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="5.841"/>
+<path d="m-107.4751-124.8859a5.8537,5.8537 0 0,1 -6.111,1.7166 5.8537,5.8537 0 0,1 -4.0823-4.8607" fill="none" id="path323-5" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="5.841" transform="scale(-1)"/>
+<path d="m93.9533,146.6316a5.8537,5.8537 0 0,1 -6.0131-5.1171" fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="5.841"/>
+<path d="m107.2655,124.6896v-63.962" fill="#fff" stroke="#fff" stroke-linecap="round" stroke-linejoin="bevel" stroke-width="5.5575"/>
+<path d="m77.8993,124.7539v-51.8753" fill="#fff" stroke="#fff" stroke-linecap="round" stroke-linejoin="bevel" stroke-width="5.5575"/>
+<use stroke-width="6.2256" transform="matrix(-1,0,0,1,185.20349,-3.3265194e-8)" xlink:href="#path323-5"/>
+</g>
+<use transform="rotate(180,112.0494,126.8551)" xlink:href="#g1242"/>
+</g>
+</g>
+</g>
+</g>
+</svg>
+</a>
+
+    <div>
+    <h1>Another Art Another Music</h1>
+    <div class=slogan>No format, just feeling</div>
+    </div>
+
+</div>
