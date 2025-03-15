@@ -53,6 +53,7 @@
             align-items: center;
             justify-content: center;
             padding: 20px;
+	    clear: both;
         }
 
         .logo {
@@ -133,14 +134,14 @@
 
     <h2>Play AAAM music</h2>
 
-    <div>
-    <img id="cover-art" src="" alt="Cover Art" style="max-width: 300px; display: none; float: right;">
-    <div>Title: <span id="track-title">N/A<span></div>
-    <div>Artist: <span id="track-artist">N/A<span></div>
-    <div>Album: <span id="track-album">N/A<span></div>
-    </div>
+<div>
+    <audio id="audio-player" style="width: 100%; padding-bottom: 20px" controls autoplay></audio>
+    <img id="cover-art" src="" alt="Cover Art" style="max-width: 300px; display: none; float: right;" />
+    <div>Title: <span id="track-title">N/A</span></div>
+    <div>Artist: <span id="track-artist">AAAM, Dogon</span></div>
+    <div>Album: <span id="track-album">Single</span></div>
     <ul id="audio-list"></ul>
-    <audio id="audio-player" style="width: 100%" controls autoplay></audio>
+</div>
 
     <script>
         const repoApiUrl = "https://api.github.com/repos/Another-Art-Another-Music/music/releases";
