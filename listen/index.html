@@ -126,6 +126,13 @@
 	    text-transform: capitalize;
 	}
 	
+	#cover-art {
+	    max-width: 300px;
+	    /* display: none; */
+	    float: right;
+	    padding-bottom: 20px;
+	    border: 0px solid red;
+	}
     </style>
 </head>
 <body>
@@ -175,12 +182,13 @@
 
 <div class="audio-player">
     <div class=audio-ui>
-    <div id=audioNext onclick="playNext()">⏭️</div>
-    <div id=audioPrev onclick="playPrev()">⏮️</div>
+    <div id=audioNext title="Next track" onclick="playNext()">⏭️</div>
+    <div id=audioPrev title="Prev track" onclick="playPrev()">⏮️</div>
     <audio id="audio-player" controls autoplay></audio>
     </div>
 
-    <img id="cover-art" src="" alt="Cover Art" style="max-width: 300px; display: none; float: right;" />
+    <img id="cover-art" src="" alt="Cover Art" 
+/>
 
     <div class="audio-meta">
     <div><span class=lbl>Title:</span> <span id="track-title">N/A</span></div>
