@@ -128,6 +128,7 @@
 <a href="https://another-art-another-music.pages.dev/">Another Art Another Music</a> |
 <a href="https://another-art-another-music.github.io/">AAAM</a> |
 <a href="https://another-art-another-music.github.io/dogon/">Dogon</a>
+<a href="/play/">Listen AAAM</a>
 </ul>
 
 <!--
@@ -198,21 +199,39 @@
 
 
 <script>
+
 var i=0;
+
 setInterval(() => {
 
     var d = document.querySelectorAll("iframe");
 
 d.forEach(num => {
     let button = num.querySelector('button[aria-label="Yes"]');
-    console.log('D ', num, button);
-    if (button) button.click();
+    if (button) {
+	button.click();
+	console.log("VVV tik tak ", num, button);
+    }
+
+    num.contentWindow.postMessage('{"event":"command","func":"getPlayerState","args":""}', '*');
+
+window.addEventListener("message", event => {
+    if (event.data === 0) console.log("VVV -Video ended.");
+    if (event.data === 2) console.log("VVV -Video paused.");
+});
+
+//console.log("VVV tik init ", num );
 
 });
 
-    console.log("tik",i++);
-
     let button = document.querySelector('button[aria-label="Yes"]');
-    if (button) button.click();
+    if (button)  {
+	button.click();
+	console.log("VVV tik", i++, button);
+    }
+
 }, 5000);
+
+console.log("VVV tik init 000 " );
+
 </script>
