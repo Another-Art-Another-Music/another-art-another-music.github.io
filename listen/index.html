@@ -121,18 +121,25 @@
 	    cursor: pointer;
 	    border: 1px solid #555;
 	}
+
 	#audio-list a{
             text-decoration: none;
 	    text-transform: capitalize;
 	}
 	
 	#cover-art {
+	    cursor: pointer;
 	    max-width: 300px;
 	    /* display: none; */
 	    float: right;
 	    padding-bottom: 20px;
 	    border: 0px solid red;
 	}
+
+	#cover-art:hover {
+            filter: drop-shadow(0 0 10px rgba(250, 200, 255, 0.8));
+	}
+
     </style>
 </head>
 <body>
@@ -187,7 +194,7 @@
     <audio id="audio-player" controls ></audio>
     </div>
 
-    <img id="cover-art" src="" alt="Cover Art"/>
+    <img id="cover-art" src="" alt="Listen track" title="Listen" onclick="playCurrent()"/>
 
     <div class="audio-meta">
     <div><span class=lbl>Title:</span> <span id="track-title">N/A</span></div>
