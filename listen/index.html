@@ -139,7 +139,7 @@
 <div class=container>
 
     <div class="header">
-<a href="https://another-art-another-music.github.io/" title=another-art-another-music>
+<a href="#" onclick="playCurrent()" title="Listen - Another Music">
 <svg class="logo" viewBox="0 0 300 300" xmlns="http://www.w3.org/2000/svg">
 <g transform="matrix(1.60279,0,0,1.60279,-91.18743,-53.85205)">
 <g transform="translate(-22.0608,4.3819)">
@@ -184,11 +184,10 @@
     <div class=audio-ui>
     <div id=audioNext title="Next track" onclick="playNext()">⏭️</div>
     <div id=audioPrev title="Prev track" onclick="playPrev()">⏮️</div>
-    <audio id="audio-player" controls autoplay></audio>
+    <audio id="audio-player" controls ></audio>
     </div>
 
-    <img id="cover-art" src="" alt="Cover Art" 
-/>
+    <img id="cover-art" src="" alt="Cover Art"/>
 
     <div class="audio-meta">
     <div><span class=lbl>Title:</span> <span id="track-title">N/A</span></div>
@@ -227,7 +226,8 @@
                     assets.forEach(asset => {
                         if (asset.name.endsWith("."+format)) {
                             const baseName = asset.name.replace(/\..+?$/, "");
-                            const baseName2 = baseName.replace(/\-(album|aaam|dogon)/ig, "").replace(/\-/g, " ");
+                            const baseName2 = baseName.replace(/\-(album|aaam|dogon)/ig, "").replace(/\-/g, " ").replace(/\b\w/g, char => char.toUpperCase());
+
                             playlist.push(asset.browser_download_url);
                             
                             assets.forEach(imgAsset => {
@@ -254,23 +254,29 @@
                 });
                 
                 if (playlist.length > 0) {
-                    playTrack(0);
+                    prepareTrack(0);
                 }
+
             } catch (error) {
                 console.error("Error fetching audio files:", error);
             }
         }
-        
-        function playTrack(index) {
-            if (index >= 0 ) {
+
+        function prepareTrack(index){
                 currentTrackIndex = index % playlist.length;
                 audioPlayer.src = playlist[currentTrackIndex];
-                audioPlayer.play();
 		trackTitle.textContent = playnames[currentTrackIndex];
 		trackFormat.textContent = format;
 		console.log('PLAY', currentTrackIndex, playnames[currentTrackIndex]);
+                document.title = 'AAAM ' + playnames[currentTrackIndex];
                 updateCoverArt(playlist[currentTrackIndex]);
                 //extractMetadata(playlist[currentTrackIndex]);
+	}
+
+        function playTrack(index) {
+            if (index >= 0 ) {
+		prepareTrack(index)
+                audioPlayer.play();
             }
         }
 
@@ -283,7 +289,9 @@
             }
         }
 
-
+	function playCurrent(){
+	playTrack( currentTrackIndex);
+	}
 	function playNext(){
 	playTrack( currentTrackIndex + 1 );
 	}
