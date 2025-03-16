@@ -49,13 +49,18 @@
             text-decoration: underline;
         }
 
-	.audio-meta .lbl {
-	    color: #666666;
-	    border: 0px solid red;
-	    display: inline-block;
-	    min-width: 80px;
-	    text-align: right;
-	}
+       .audio-meta {
+            display: grid;
+            grid-template-columns: auto 1fr;
+        }
+        .lbl {
+            color: #333;
+            text-align: right;
+            padding-right: 10px;
+        }
+        #track-title, #track-artist, #track-album, #trackFormat {
+            color: #aaa;
+        }
 
         .header {
             display: flex;
@@ -226,15 +231,14 @@ hr{
 
 <ul>
 <li>
-<a href="https://another-art-another-music.pages.dev/">Another Art Another Music</a> |
-<a href="https://another-art-another-music.github.io/">AAAM</a> |
+<a href="https://another-art-another-music.pages.dev/">AAAM</a> |
 <a href="../dogon/">Dogon</a> |
 <a href="https://github.com/Another-Art-Another-Music/listen/releases">Downloads</a> |
 <a href="../feedback/">Contacts</a> |
-<a href="">Listen our music</a>
-<li><a href="https://www.youtube.com/@another-art-another-music">Video Art on Youtube</a> |
-<a href="https://aaam.bandcamp.com/">aaam.bandcamp.com</a> |
-<a href="https://soundcloud.com/aaam-dogon">soundcloud.com/aaam-dogon</a>
+<a href="">Listen music</a>
+<li><a href="https://www.youtube.com/@another-art-another-music">Video Art</a> |
+<a href="https://aaam.bandcamp.com/">Bandcamp</a> |
+<a href="https://soundcloud.com/aaam-dogon">SoundCloud</a>
 </ul>
 
 </div>
@@ -244,17 +248,21 @@ hr{
 <div class="audio-player">
     <div class=audio-ui>
     <div id=audioNext title="Next track" onclick="playNext()">⏭️</div>
+    <div id=audioPlay title="Play" onclick="playCurrent()">►</div>
+    <div id=audioStop title="Stop" onclick="playStop()">⬛</div>
+    <div id=audioShuffle title="Shuffle" onclick="playShuffle()">🔀</div>
+    <div id=audioRefresh title="Refresh" onclick="audioRefresh()">🔄</div>
     <div id=audioPrev title="Prev track" onclick="playPrev()">⏮️</div>
-    <audio id="audio-player" controls ></audio>
+    <audio id="audio-player" controls preload="auto" ></audio>
     </div>
 
     <img id="cover-art" src="" alt="Cover" title="cover" onclick="showCover()"/>
 
     <div class="audio-meta">
-    <div><span class=lbl>Title:</span> <span id="track-title">N/A</span></div>
-    <div><span class=lbl>Artist:</span> <span id="track-artist">AAAM, Dogon</span></div>
-    <div><span class=lbl>Album:</span> <span id="track-album">Single</span></div>
-    <div><span class=lbl>Format:</span> <span id="trackFormat">...</span></div>
+    <div class=lbl>Title:</div> <div id="track-title">N/A</div>
+    <div class=lbl>Artist:</div> <div id="track-artist">AAAM, Dogon</div>
+    <div class=lbl>Album:</div> <div id="track-album">Single</div>
+    <div class=lbl>Format:</div> <div id="trackFormat">...</div>
     </div>
 
     <h3>Music list</h3>
@@ -269,19 +277,34 @@ hr{
         const trackTitle = document.getElementById("track-title");
         const trackArtist = document.getElementById("track-artist");
         const trackAlbum = document.getElementById("track-album");
-        let playlist = [];
-        let playnames = [];
         let currentTrackIndex = 0;
         let coverMap = {};
 	let format="opus";
+	let prepared;
+        let playlist = [];
+        let playnames = [];
+
 	//format="flac";
 	//format="ogg";
 
-        async function fetchAudioFiles() {
+	function addTrack(asset){
+	    logMessage("ADD: ", asset.browser_download_url);
+	    playlist.push(asset.browser_download_url);
+	}
+
+        async function fetchAudioFiles(shuffle) {
+
+	    logMessage('fetchAudioFiles');
+    	    playlist = [];
+    	    playnames = [];
+	    audioList.innerHTML = '';
+	
             try {
                 const response = await fetch(repoApiUrl);
                 const releases = await response.json();
-                
+
+		if ( shuffle ) releases.sort(() => Math.random() - 0.5);
+
                 releases.forEach(release => {
                     const assets = release.assets || [];
                     assets.forEach(asset => {
@@ -289,15 +312,15 @@ hr{
                             const baseName = asset.name.replace(/\..+?$/, "");
                             const baseName2 = baseName.replace(/\-(album|aaam|dogon)/ig, "").replace(/\-/g, " ").replace(/\b\w/g, char => char.toUpperCase());
 
-                            playlist.push(asset.browser_download_url);
-                            
+                            addTrack(asset)
+
                             assets.forEach(imgAsset => {
                                 if (imgAsset.name.startsWith(baseName) && imgAsset.name.match(/\.(jpg|jpeg|png)$/)) {
                                     coverMap[asset.browser_download_url] = imgAsset.browser_download_url;
                                     playnames.push(baseName2);
                                 }
                             });
-                            
+
                             const listItem = document.createElement("li");
                             const link = document.createElement("a");
                             
@@ -324,6 +347,10 @@ hr{
         }
 
         function prepareTrack(index){
+		console.log('PREPLAY', index, currentTrackIndex, prepared);
+
+		if ( prepared == index ) return;
+
                 currentTrackIndex = index % playlist.length;
                 audioPlayer.src = playlist[currentTrackIndex];
 		trackTitle.textContent = playnames[currentTrackIndex];
@@ -333,6 +360,7 @@ hr{
                 updateCoverArt(playlist[currentTrackIndex]);
                 //extractMetadata(playlist[currentTrackIndex]);
 	        highlightCurrentTrack();
+		prepared=currentTrackIndex
 	}
 
 function highlightCurrentTrack() {
@@ -346,12 +374,23 @@ function highlightCurrentTrack() {
     }
 }
 
-        function playTrack(index) {
-            if (index >= 0 ) {
+async        function playTrack(index) {
+		logMessage("playTreck ", index);
+		if (index < 0 ) index=playlist.length-1;
+
 		prepareTrack(index)
-                audioPlayer.play();
+		//audioPlayer.load();
+                //audioPlayer.play();
+        try {
+            await audioPlayer.play().catch(error => {
+                logMessage("Playback failed, retrying:", error.message);
+                setTimeout(() => audioPlayer.play(), 1000); // Retry after 1s
+            });
+        } catch (error) {
+            logMessage("Fatal playback error:", error.message);
+        }
+
 	        highlightCurrentTrack();
-            }
         }
 
         function updateCoverArt(audioUrl) {
@@ -363,20 +402,49 @@ function highlightCurrentTrack() {
             }
         }
 
-	function playCurrent(){
+
+function playCurrent(){
 	playTrack( currentTrackIndex);
-	}
-	function playNext(){
-	playTrack( currentTrackIndex + 1 );
-	}
-	function playPrev(){
-	playTrack( currentTrackIndex - 1 );
-	}
-        audioPlayer.addEventListener("ended", () => {
-//            if (currentTrackIndex + 1 < playlist.length) {
-		    playNext();
-//            }
-        });
+}
+function playStop(){
+	audioPlayer.pause();
+}
+function playShuffle(){
+	logMessage("SHUFFLE")
+        fetchAudioFiles(true);
+}
+function audioRefresh(){
+	logMessage("REFRESH")
+        fetchAudioFiles();
+}
+
+function playNext(){
+	playTrack( ++currentTrackIndex  );
+}
+function playPrev(){
+	playTrack( --currentTrackIndex  );
+}
+
+audioPlayer.addEventListener("ended", () => {
+	playNext();
+});
+
+function logMessage(...args) {
+            console.log(...args);
+}
+
+const events = [
+    "play", "pause", "ended", "timeupdate", "seeked", "seeking",
+    "loadstart", "progress", "canplay", "canplaythrough",
+    "waiting", "stalled", "error", "abort",
+    "volumechange", "durationchange", "loadedmetadata", "loadeddata"
+];
+
+events.forEach(event => {
+    audioPlayer.addEventListener(event, () => {
+        console.log(`Audio Event: ${event}`);
+    });
+});
 
 
 // When audio starts playing, add the rotating class
@@ -386,6 +454,11 @@ audioPlayer.addEventListener("play", () => {
 
 // When audio is paused or ended, remove the rotating class
 audioPlayer.addEventListener("pause", () => {
+    logo.classList.remove("rotating");
+});
+
+// When audio is paused or ended, remove the rotating class
+audioPlayer.addEventListener("error", () => {
     logo.classList.remove("rotating");
 });
 
@@ -403,9 +476,8 @@ coverArt.addEventListener("click", function () {
     }
 });
 
-
-
         fetchAudioFiles();
+
     </script>
 
 <!-- FOOTER -->
