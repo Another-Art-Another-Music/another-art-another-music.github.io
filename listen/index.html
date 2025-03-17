@@ -82,6 +82,19 @@
         }
 
 
+	#cover-art {
+	    cursor: pointer;
+	    max-width: 300px;
+
+	    float: right;
+	    padding-bottom: 20px;
+	    padding-left: 20px;
+/*
+	    border: 0px solid red;
+	    transition: all 0.3s ease-in-out;
+*/
+	}
+
 @media (max-width: 768px) {
 
         .container {
@@ -95,6 +108,7 @@
 
         h2,h3 {
 	    font-size: 105%;
+	    padding-top:0px;
 	}
 
         .logo {
@@ -102,6 +116,21 @@
             height: auto;
         }
 
+	ul,li {
+	    padding-left: 1px;
+	}
+
+	.header, #header {
+	    padding: 0px;
+	}
+
+	body {
+	font-size: 90%;
+	}
+
+	#cover-art{
+	max-width: 50%;
+	}
 }
 
 	#audio-player{
@@ -135,19 +164,6 @@
 	    text-transform: capitalize;
 	}
 	
-	#cover-art {
-	    cursor: pointer;
-	    max-width: 300px;
-
-	    float: right;
-	    padding-bottom: 20px;
-	    padding-left: 20px;
-/*
-	    border: 0px solid red;
-	    transition: all 0.3s ease-in-out;
-*/
-
-	}
 
 .fullscreen-cover {
     position: fixed;
@@ -209,10 +225,7 @@ hr{
 <body>
 <div class=container>
 <div id=header>
-
 <div class="header">
-
-
 <a href="#" onclick="playCurrent()" title="Listen - Another Music">
 <svg class="logo" id=logo height="64" viewBox="0 0 16.933333 16.933333" width="64" xmlns="http://www.w3.org/2000/svg">
 <g transform="translate(2.7777,-.1868)">
@@ -235,8 +248,10 @@ hr{
 <a href="https://another-art-another-music.pages.dev/">AAAM</a> |
 <a href="../dogon/">Dogon</a> |
 <a href="https://github.com/Another-Art-Another-Music/listen/releases">Downloads</a> |
-<a href="../feedback/">Contacts</a> |
+<a href="../feedback/">Contacts</a>
+<!-- |
 <a href="">Listen music</a>
+-->
 <li><a href="https://www.youtube.com/@another-art-another-music">Video Art</a> |
 <a href="https://aaam.bandcamp.com/">Bandcamp</a> |
 <a href="https://soundcloud.com/aaam-dogon">SoundCloud</a>
