@@ -89,13 +89,38 @@
 	    float: right;
 	    padding-bottom: 20px;
 	    padding-left: 20px;
-/*
-	    border: 0px solid red;
-	    transition: all 0.3s ease-in-out;
-*/
+
 	}
 
+.fullscreen-cover {
+    position: fixed;
+    top: 0;
+    left: 1;
+    width: 100vh;
+    height: 100vh;
+    min-width: 100vh;
+    min-height: 100vh;
+    background-color: rgba(0, 0, 0, 0.95);
+    z-index: 9999;
+    border-right: 10px solid black;
+    border-left: 10px solid black;
+}
+
+
 @media (max-width: 768px) {
+
+.fullscreen-cover {
+    position: fixed;
+    top: 30px;
+    left: -20px;
+    width: 99vw;
+    height: 99vw;
+    min-width: 99vw;
+    min-height: 99vw;
+    z-index: 9999;
+    border-right: 0px solid black;
+    border-left: 0px solid black;
+}
 
         .container {
             width: 100%;
@@ -172,22 +197,6 @@
 	}
 	
 
-.fullscreen-cover {
-    position: fixed;
-    top: 0;
-    left: 1;
-    width: 100vh;
-    height: 100vh;
-    min-width: 100vh;
-    min-height: 100vh;
-    background-color: rgba(0, 0, 0, 0.95);
-    z-index: 9999;
-    border-right: 10px solid black;
-    border-left: 10px solid black;
-/*
-    transition: all 0.3s ease-in-out;
-*/
-}
 
 	.logo:hover {
 	    filter: drop-shadow(0 0 10px rgba(250, 200, 255, 0.8));
