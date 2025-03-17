@@ -52,6 +52,7 @@
        .audio-meta {
             display: grid;
             grid-template-columns: auto 1fr;
+	    min-width: 200px;
         }
         .lbl {
             color: #333;
@@ -248,7 +249,7 @@ hr{
 <div class="audio-player">
     <div class=audio-ui>
     <div id=audioNext title="Next track" onclick="playNext()">⏭️</div>
-    <div id=audioPlay title="Play" onclick="playCurrent()">►</div>
+    <div id=audioPlay title="Play" onclick="playCurrent()">▶️</div>
     <div id=audioStop title="Stop" onclick="playStop()">⬛</div>
     <div id=audioShuffle title="Shuffle" onclick="playShuffle()">🔀</div>
     <div id=audioRefresh title="Refresh" onclick="audioRefresh()">🔄</div>
