@@ -136,9 +136,8 @@
 </a>
 
     <div>
-    <h1>Dogon Music</h1>
-    <div class=slogan>For those who aren't in a hurry,</br>
-who have time to listen.</div>
+    <h1>AAAM Music - undeground</h1>
+    <div class=slogan>Going deeper, deeper, deeper... </div>
     </div>
 
 </div>
@@ -159,9 +158,86 @@ who have time to listen.</div>
 
 <!--/HEADER-->
 
-<text>
+<style>
+        pre {
+            background: #333;
+            color: #fff;
+            border-radius: 5px;
+            position: relative;
+            overflow-x: auto;
+	    padding-left: 30px;
+	    padding-right: 30px;
+            white-space: pre-wrap; /* Ensures wrapping */
+            word-wrap: break-word; /* Ensures long words break */
+        }
+        code {
+            font-family: "Courier New", monospace;
+        }
+        button {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #0077cc;
+            border: none;
+            color: white;
+            padding: 5px 10px;
+            font-size: 12px;
+            cursor: pointer;
+            border-radius: 3px;
+        }
+        button:hover {
+            background: #005fa3;
+        }
+
+        button.copied {
+            background: #28a745; /* Green color when copied */
+            opacity: 0.8;
+        }
+
+
+    </style>
+    <h1>Scripts</h1>
+
+    <h2>Listen Another Art Another Music</h2>
+
+    <p>
+    Get script: <a href="https://another-art-another-music.pages.dev/sh/listen.sh">
+        https://another-art-another-music.pages.dev/sh/listen.sh
+    </a>
+    </p>
+
+    Play from latest
+    <pre>
+        <button id=copyButton onclick="copyToClipboard(this)">Copy</button>
+        <code>
 curl https://another-art-another-music.pages.dev/sh/listen.sh | sh -s -
-</text>
+        </code>
+    </pre>
+
+    Play shuffle
+    <pre>
+        <button id=copyButton onclick="copyToClipboard(this)">Copy</button>
+        <code>
+curl https://another-art-another-music.pages.dev/sh/listen.sh | sh -s --shuffle
+        </code>
+    </pre>
+
+    <script>
+        function copyToClipboard(button) {
+            const codeBlock = button.nextElementSibling.innerText.trim();
+            navigator.clipboard.writeText(codeBlock).then(() => {
+                button.textContent = "Copied!";
+                button.classList.add("copied");
+                setTimeout(() => {
+                    button.textContent = "Copy";
+                    button.classList.remove("copied");
+                }, 2000);
+            }).catch(err => {
+                console.error("Failed to copy text: ", err);
+            });
+
+        }
+    </script>
 
 <!--FOOTER-->
 <div class="header2" >

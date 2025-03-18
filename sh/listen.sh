@@ -3,6 +3,15 @@
 ## hyphop ##
 #= simple shell script to play AAAM music from console
 
+help(){
+cat <<EOF
+    curl https://another-art-another-music.pages.dev/sh/listen.sh | sh -s
+    curl https://another-art-another-music.pages.dev/sh/listen.sh | sh -s --shuffle
+EOF
+}
+
+help
+
 GITHUB_USER="Another-Art-Another-Music"
 GITHUB_REPO="listen"
 API_URL="https://api.github.com/repos/$GITHUB_USER/$GITHUB_REPO/releases"
@@ -45,8 +54,9 @@ CMD(){
 
 play_with() {
     echo "MPV backend"
-    mpv --playlist="$PLAYLIST_FILE" --loop-playlist=inf --shuffle # --no-video
+    CMD mpv --playlist="$PLAYLIST_FILE" --loop-playlist=inf "$@"
+    //--shuffle --no-video
 }
 
 fetch_and_create_playlist
-play_with
+play_with "$@"
