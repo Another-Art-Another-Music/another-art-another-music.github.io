@@ -182,9 +182,12 @@
 	.audio-ui{
 	    clean: both;
 	    padding-bottom: 10px;
+	    padding-top: 10px;
+
 	    width: 100%;
 	    border: 0px solid red;
 	}
+
 	.audio-ui div {
 	    float: right;
 	    border: 1px solid #444;
@@ -264,7 +267,12 @@ hr{
 
     <div>
     <h1>Another Art Another Music</h1>
-    <div class=slogan>No format, just feeling</div>
+    <div class=slogan>
+Right place for listening,<br> no hurry, no thinking, just be.
+<!--
+No format, just feeling
+-->
+</div>
     </div>
 
 </div>
@@ -285,11 +293,11 @@ hr{
 
 </div>
 
-    <h2>Listen AAAM music - original source</h2>
-
+    <h2>Listen Another Music</h2>
+<!--
+-->
 <div class="audio-player">
     <div class=audio-ui>
-
     <div id=audioNext title="Next track" onclick="playNext()">⏭</div>
     <div id=audioPlay title="Play" onclick="playCurrent()">⏵</div>
     <div id=audioStop title="Stop" onclick="playStop()">◼</div>
@@ -310,6 +318,10 @@ hr{
 
     <h3>Music list</h3>
     <ul id="audio-list"></ul>
+
+
+<i>"Yes, this is the right place for listening, without hurry. Let the sounds flow - no need to do anything. Just be."</i>
+
 </div>
 
     <script>
