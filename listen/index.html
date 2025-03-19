@@ -174,34 +174,36 @@
 
 	}
 
+
+	#audio-player {
+	    width: 100%;
+	}
+
 	.audio-ui{
 	    clean: both;
 	    padding-bottom: 10px;
 	    width: 100%;
 	    border: 0px solid red;
 	}
-
-	#audio-player {
-	    width: 100%;
-	}
 	.audio-ui div {
 	    float: right;
-	    border: 1px solid #111;
+	    border: 1px solid #444;
 	    padding: 5px;
 	    display: inline-block;
-	    border-radius: 2px;
+	    border-radius: 4px;
+	    min-width: 25px;
+	    text-align: center;
+	    vertical-align: middle;
 	}
 	.audio-ui div:hover {
 	    cursor: pointer;
-	    border: 1px solid #555;
+	    border: 1px solid #888;
 	}
 
 	#audio-list a{
             text-decoration: none;
 	    text-transform: capitalize;
 	}
-	
-
 
 	.logo:hover {
 	    filter: drop-shadow(0 0 10px rgba(250, 200, 255, 0.8));
@@ -284,12 +286,13 @@ hr{
 
 <div class="audio-player">
     <div class=audio-ui>
-    <div id=audioNext title="Next track" onclick="playNext()">⏭️</div>
-    <div id=audioPlay title="Play" onclick="playCurrent()">▶️</div>
-    <div id=audioStop title="Stop" onclick="playStop()">⬛</div>
-    <div id=audioShuffle title="Shuffle" onclick="playShuffle()">🔀</div>
-    <div id=audioRefresh title="Refresh" onclick="audioRefresh()">🔄</div>
-    <div id=audioPrev title="Prev track" onclick="playPrev()">⏮️</div>
+
+    <div id=audioNext title="Next track" onclick="playNext()">⏭</div>
+    <div id=audioPlay title="Play" onclick="playCurrent()">⏵</div>
+    <div id=audioStop title="Stop" onclick="playStop()">◼</div>
+    <div id=audioShuffle title="Shuffle" onclick="playShuffle()">⤭</div>
+    <div id=audioRefresh title="Refresh" onclick="audioRefresh()">⟳</div>
+    <div id=audioPrev title="Prev track" onclick="playPrev()">⏮</div>
     <audio id="audio-player" controls preload="auto" ></audio>
     </div>
 
@@ -299,7 +302,7 @@ hr{
     <div class=lbl>Title:</div> <div id="track-title">N/A</div>
     <div class=lbl>Artist:</div> <div id="track-artist">AAAM, Dogon</div>
     <div class=lbl>Album:</div> <div id="track-album">Single</div>
-    <div class=lbl>Format:</div> <div id="trackFormat">...</div>
+    <div class=lbl>Downloads:</div> <div id="trackFormat">...</div>
     </div>
 
     <h3>Music list</h3>
@@ -400,7 +403,12 @@ hr{
                 currentTrackIndex = index % playlist.length;
                 audioPlayer.src = playlist[currentTrackIndex];
 		trackTitle.textContent = playnames[currentTrackIndex];
-		trackFormat.textContent = format;
+
+		var s = playlist[currentTrackIndex].replace(/\.[^/.]+$/, "");
+		trackFormat.innerHTML = `
+<a href='${s}.opus' title="Download track in lossy OPUS format">Opus</a>,
+<a href='${s}.flac' title="Download track in lossless FLAC format">FLAC</a>
+`;
 		console.log('PLAY', currentTrackIndex, playnames[currentTrackIndex]);
                 document.title = 'AAAM ' + playnames[currentTrackIndex];
                 updateCoverArt(playlist[currentTrackIndex]);
@@ -480,7 +488,9 @@ function logMessage(...args) {
 }
 
 const events = [
-    "play", "pause", "ended", "timeupdate", "seeked", "seeking",
+    "play", "pause", "ended",
+    //"timeupdate",
+    "seeked", "seeking",
     "loadstart", "progress", "canplay", "canplaythrough",
     "waiting", "stalled", "error", "abort",
     "volumechange", "durationchange", "loadedmetadata", "loadeddata"
@@ -506,6 +516,7 @@ audioPlayer.addEventListener("pause", () => {
 // When audio is paused or ended, remove the rotating class
 audioPlayer.addEventListener("error", () => {
     logo.classList.remove("rotating");
+    console.log("Error loading audio:", this.error);
 });
 
 audioPlayer.addEventListener("ended", () => {
