@@ -141,8 +141,8 @@ hr{
 </svg>
 </a>
 
-    <div>
-    <h1>Another Art Another Music</h1>
+    <div style="min-width: 320px">
+    <h1>Another Art</h1><h1>Another Music</h1>
     <div class=slogan>No format, just feeling</div>
     </div>
 
@@ -243,4 +243,61 @@ window.addEventListener("message", event => {
 
 console.log("VVV tik init 000 " );
 
+</script>
+
+<script>
+
+const titleElements = Array.from(document.querySelectorAll("h1"));
+let titles=titleElements.length;
+let originalText = titleElements.length > 0 ? titleElements[0].textContent : "Another Art Another Music";
+
+const similarChars = {
+    'a': ['𝐀', '𝗔', '𝘼', '𝖠', '𝔸', '𝕬', 'А', '𝓐'],
+    'e': ['𝐄', '𝗘', '𝙀', '𝖤', '𝔼', '𝕰', 'Е', '𝓔'],
+    'h': ['𝐇', '𝗛', '𝙃', '𝖧', 'ℍ', '𝕳', 'Н', '𝓗'],
+    'i': ['𝐈', '𝗜', '𝙄', '𝖨', '𝕀', '𝕴', 'І', '𝓘'],
+    'm': ['𝐌', '𝗠', '𝙈', '𝖬', '𝕄', '𝕸', 'М', '𝓜'],
+    'n': ['𝐍', '𝗡', '𝙉', '𝖭', 'ℕ', '𝕹', 'Н', '𝒩'],
+    'o': ['𝐎', '𝗢', '𝙊', '𝖮', '𝕆', '𝕺', 'О', '𝒪'],
+    'r': ['𝐑', '𝗥', '𝙍', '𝖱', 'ℝ', '𝕽', 'Я', '𝓡'],
+    's': ['𝐒', '𝗦', '𝙎', '𝖲', '𝕊', '𝕾' ],
+    't': ['𝐓', '𝗧', '𝙏', '𝖳', '𝕋', '𝕿', 'Т', '𝒯'],
+    'u': ['𝐔', '𝗨', '𝙐', '𝖴', '𝕌', '𝖀', '𝒰'],
+};
+
+function getRandomSimilarChar(char) {
+    let c = char.toLowerCase();
+    if (similarChars[c]) {
+        let variants = similarChars[c];
+        let sss = variants[Math.floor(Math.random() * variants.length)];
+	return sss;
+    }
+    return char; // If no similar character is found, return the original
+}
+
+function updateOneTitle() {
+    if (titleElements.length === 0) return;
+    const element = titleElements[Math.floor(Math.random() * titleElements.length)];
+    let textArray = element.textContent.split("");
+    let index = Math.floor(Math.random() * textArray.length);
+    let attempts = textArray.length;
+
+    while (attempts > 0) {
+	let c=textArray[index].toLowerCase()
+        if (similarChars[c]) {
+            let newChar = getRandomSimilarChar(c);
+            if (newChar !== textArray[index]) {
+                textArray[index] = newChar;
+                element.textContent = textArray.join("");
+                return;
+            }
+        }
+	index = ++index % textArray.length;
+        attempts--;
+    }
+    if ( titles-- < 1 ) clearInterval(update_titles);
+
+}
+
+let update_titles=setInterval(updateOneTitle, 100);
 </script>
