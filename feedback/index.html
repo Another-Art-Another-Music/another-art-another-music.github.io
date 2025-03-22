@@ -259,4 +259,5 @@ document.write(header.innerHTML)
 </script>
 </div>
 
+<script>document.querySelectorAll("a[href]").forEach(a=>a.href.startsWith("file:///")&&a.href.endsWith("/")&&a.setAttribute("href",a.getAttribute("href")+"index.html"))</script>
 </div>
