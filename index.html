@@ -303,3 +303,5 @@ function updateOneTitle() {
 
 let update_titles=setInterval(updateOneTitle, 100);
 </script>
+
+<script>document.querySelectorAll("a[href]").forEach(a=>a.href.startsWith("file:///")&&a.href.endsWith("/")&&a.setAttribute("href",a.getAttribute("href")+"index.html"))</script>
