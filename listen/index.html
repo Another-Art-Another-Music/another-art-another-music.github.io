@@ -363,7 +363,7 @@ function matchTrack(a,b){
     let A = a.replace(/\s+/g, "-").toLowerCase();
     let B = b.replace(/\s+/g, "-").toLowerCase();
     let ok = false;
-    if ( A == B ) ok = true;
+    if ( A.indexOf(B) > -1 ) ok = true;
     console.log("matchTrack:",A,B,ok);
     return ok;
 }
