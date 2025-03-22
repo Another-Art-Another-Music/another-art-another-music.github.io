@@ -609,6 +609,33 @@ document.addEventListener('keydown', function(event) {
 
 });
 
+let touchStartX = 0;
+let touchEndX = 0;
+
+document.addEventListener('touchstart', function(event) {
+  touchStartX = event.changedTouches[0].screenX;
+});
+
+document.addEventListener('touchend', function(event) {
+  touchEndX = event.changedTouches[0].screenX;
+  handleSwipeGesture();
+});
+
+function handleSwipeGesture() {
+  const swipeThreshold = 50; // pixels
+
+  if (touchEndX < touchStartX - swipeThreshold) {
+    playPrev();
+  } else if (touchEndX > touchStartX + swipeThreshold) {
+    playNext();
+  }
+}
+
+document.addEventListener('dblclick', function () {
+  console.log('DBL');
+  playToggle();
+});
+
     </script>
 
 <!-- FOOTER -->
