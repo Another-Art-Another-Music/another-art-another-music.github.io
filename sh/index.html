@@ -119,7 +119,7 @@
 }
     </style>
 </head>
-<body>
+<boOBdy>
 <div class=container>
 
 <div id="header">
@@ -144,17 +144,13 @@
 
 <ul>
 <li>
-<a href="https://another-art-another-music.pages.dev/">Another Art Another Music</a> |
-<a href="https://another-art-another-music.github.io/">AAAM</a> |
+<a href="../">AAAM</a> |
 <a href="">Dogon</a> |
-<!--
-<a href="https://github.com/Another-Art-Another-Music/listen/releases">Downloads</a> |
--->
 <a href="../feedback/">Contacts</a> |
-<a href="../listen/">Listen our music</a>
-<li><a href="https://www.youtube.com/@another-art-another-music">Youtube Video Art</a> |
-<a href="https://aaam.bandcamp.com/">aaam.bandcamp.com</a> |
-<a href="https://soundcloud.com/aaam-dogon">soundcloud.com/aaam-dogon</a>
+<a href="../listen/">Listen music</a>
+<li><a href="https://www.youtube.com/@another-art-another-music">Video Art</a> |
+<a href="https://aaam.bandcamp.com/">Bandcamp</a> |
+<a href="https://soundcloud.com/aaam-dogon">SoundCloud</a>
 </ul>
 </div>
 
@@ -243,9 +239,7 @@ curl https://another-art-another-music.pages.dev/sh/listen.sh | sh -s --shuffle
 
 <!--FOOTER-->
 <div class="header2" >
-<script>
-document.write(header.innerHTML)
-</script>
+<script>document.write(header.innerHTML)</script>
 </div>
-
+<script>document.querySelectorAll("a[href]").forEach(a=>a.href.startsWith("file:///")&&a.href.endsWith("/")&&a.setAttribute("href",a.getAttribute("href")+"index.html"))</script>
 </div>
