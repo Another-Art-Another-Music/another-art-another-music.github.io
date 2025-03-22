@@ -350,9 +350,16 @@ No format, just feeling
 	    playlist.push(asset.browser_download_url);
 	}
 
-        async function fetchAudioFiles(shuffle,play) {
 
-	    logMessage('fetchAudioFiles');
+	function hash(a){
+	    a = a.replace(/\s+/g, "-").toLowerCase();
+	    console.log("HASH:", a);
+	    return a;
+	}
+
+        async function fetchAudioFiles(shuffle,play,match) {
+
+	    logMessage('fetchAudioFiles',shuffle,play,match);
     	    playlist = [];
     	    playnames = [];
 	    audioList.innerHTML = '';
@@ -404,9 +411,10 @@ No format, just feeling
                 });
                 
                 if (playlist.length > 0) {
-                    prepareTrack(0);
-	    	    if ( shuffle ) playTrack(0);
-	    	    if ( play ) playTrack(0);
+		    let track=0;
+                    prepareTrack(track);
+	    	    if ( shuffle ) playTrack(track);
+	    	    if ( play ) playTrack(track);
                 }
             } catch (error) {
                 console.error("Error fetching audio files:", error);
@@ -431,6 +439,9 @@ No format, just feeling
                 document.title = 'AAAM ' + playnames[currentTrackIndex];
                 updateCoverArt(playlist[currentTrackIndex]);
                 //extractMetadata(playlist[currentTrackIndex]);
+
+		window.location.hash = hash(playnames[currentTrackIndex]);
+
 	        highlightCurrentTrack();
 		prepared=currentTrackIndex
 	}
@@ -578,7 +589,7 @@ coverArt.addEventListener("click", function () {
     }
 });
 
-        fetchAudioFiles();
+        fetchAudioFiles(false,false,true);
 
 document.addEventListener('keydown', function(event) {
   const key = event.key.toLowerCase();
