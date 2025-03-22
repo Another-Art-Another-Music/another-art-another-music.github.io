@@ -219,6 +219,10 @@
 	    padding-right: 10px;
 	}
 
+	.copied {
+	    opacity: 0.5;
+	}
+
 .current-track {
     color: #FF00FF; /* Highlight color */
     font-weight: bold;
@@ -307,6 +311,7 @@ No format, just feeling
     <div id=audioShuffle title="Shuffle - press [S]" onclick="playShuffle()">S</div>
     <div id=audioRefresh title="Refresh - press [R] " onclick="audioRefresh()">R</div>
     <div id=audioPrev title="Prev track - press [<]" onclick="playPrev()"><<</div>
+    <div id=audioShare title="Share link to listen this track" onclick="shareLink(this)">🔗</div>
     <audio id="audio-player" controls preload="auto" ></audio>
     </div>
 
@@ -327,6 +332,23 @@ No format, just feeling
 
 </div>
 
+
+    <script>
+        function shareLink(button) {
+            navigator.clipboard.writeText(share_link).then(() => {
+                //button.textContent = "@";
+                button.classList.add("copied");
+                setTimeout(() => {
+                    //button.textContent = "Copy";
+                    button.classList.remove("copied");
+                }, 2000);
+            }).catch(err => {
+                console.error("Failed to copy text: ", err);
+            });
+
+        }
+    </script>
+
     <script>
         const repoApiUrl = "https://api.github.com/repos/Another-Art-Another-Music/music/releases";
         const audioList = document.getElementById("audio-list");
@@ -341,6 +363,7 @@ No format, just feeling
 	let prepared;
         let playlist = [];
         let playnames = [];
+	let share_link;
 
 	//format="flac";
 	//format="ogg";
@@ -458,7 +481,7 @@ function matchTrack(a,b){
                 //extractMetadata(playlist[currentTrackIndex]);
 
 		window.location.hash = hash(playnames[currentTrackIndex]);
-
+		share_link = window.location;
 	        highlightCurrentTrack();
 		prepared=currentTrackIndex
 	}
