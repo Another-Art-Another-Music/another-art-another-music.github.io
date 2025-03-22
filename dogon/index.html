@@ -170,18 +170,13 @@ who have time to listen.</div>
 </g>
 </svg>
 </center>
-
 <div style="transform: rotate(180deg);">
 <p></p>
 <h1>Music</h1>
-<p></p>
 </div>
-
 <!--FOOTER-->
 <div class="header2" >
-<script>
-document.write(header.innerHTML)
-</script>
+<script>document.write(header.innerHTML)</script>
+<script>document.querySelectorAll("a[href]").forEach(a=>a.href.startsWith("file:///")&&a.href.endsWith("/")&&a.setAttribute("href",a.getAttribute("href")+"index.html"))</script>
 </div>
-
 </div>
