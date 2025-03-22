@@ -301,12 +301,12 @@ No format, just feeling
 -->
 <div class="audio-player">
     <div class=audio-ui>
-    <div id=audioNext title="Next track" onclick="playNext()">>></div>
-    <div id=audioPlay title="Play" onclick="playCurrent()">▶</div>
-    <div id=audioStop title="Stop" onclick="playStop()">=</div>
-    <div id=audioShuffle title="Shuffle" onclick="playShuffle()">S</div>
-    <div id=audioRefresh title="Refresh" onclick="audioRefresh()">R</div>
-    <div id=audioPrev title="Prev track" onclick="playPrev()"><<</div>
+    <div id=audioNext title="Next track - press [>] " onclick="playNext()">>></div>
+    <div id=audioPlay title="Play - press [Space]" onclick="playCurrent()">▶</div>
+    <div id=audioStop title="Stop - press [P]" onclick="playStop()">=</div>
+    <div id=audioShuffle title="Shuffle - press [S]" onclick="playShuffle()">S</div>
+    <div id=audioRefresh title="Refresh - press [R] " onclick="audioRefresh()">R</div>
+    <div id=audioPrev title="Prev track - press [<]" onclick="playPrev()"><<</div>
     <audio id="audio-player" controls preload="auto" ></audio>
     </div>
 
@@ -497,6 +497,33 @@ function playPrev(){
 	playTrack( --currentTrackIndex  );
 }
 
+function volumeUp(){
+	audioPlayer.volume+=0.05;
+	logMessage("VOL UP", audioPlayer.volume)
+}
+
+function volumeToggle(){
+	audioPlayer.volume = audioPlayer.volume ? 0 : 1;
+	logMessage("Mute", audioPlayer.volume)
+}
+
+function volumeMax(){
+	audioPlayer.volume=1;
+	logMessage("VOL MAX", audioPlayer.volume)
+}
+
+function volumeDown(){
+	audioPlayer.volume-=0.05;
+	logMessage("VOL down", audioPlayer.volume)
+}
+
+function playToggle(){
+	if (audioPlayer.paused) {
+	    playCurrent()
+        } else {
+	    playStop()
+        }
+}
 audioPlayer.addEventListener("ended", () => {
 	playNext();
 });
@@ -553,6 +580,35 @@ coverArt.addEventListener("click", function () {
 
         fetchAudioFiles();
 
+document.addEventListener('keydown', function(event) {
+  const key = event.key.toLowerCase();
+
+  if (event.code === 'Space') {
+    event.preventDefault();
+    playToggle();
+    return;
+  }
+
+  const actions = {
+    'p': playToggle,
+    'r': audioRefresh,
+    's': playShuffle,
+    'q': playStop,
+    '.': playNext,
+    ',': playPrev,
+    '>': playNext,
+    '<': playPrev,
+    '-': volumeDown,
+    '+': volumeUp,
+    '_': volumeDown,
+    '=': volumeUp,
+    'm': volumeToggle,
+  };
+
+  if (actions[key]) actions[key]()
+
+});
+
     </script>
 
 <!-- FOOTER -->
@@ -566,5 +622,7 @@ Did you like <a href="../sh/">command-line way to play AAAM</a> - wellcome
 document.write(header.innerHTML)
 </script>
 </div>
+
+<script>document.querySelectorAll("a[href]").forEach(a=>a.href.startsWith("file:///")&&a.href.endsWith("/")&&a.setAttribute("href",a.getAttribute("href")+"index.html"))</script>
 
 </div>
