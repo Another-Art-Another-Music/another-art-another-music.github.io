@@ -357,6 +357,17 @@ No format, just feeling
 	    return a;
 	}
 
+function matchTrack(a,b){
+    if (!a) return false;
+    if (!b) return false;
+    let A = a.replace(/\s+/g, "-").toLowerCase();
+    let B = b.replace(/\s+/g, "-").toLowerCase();
+    let ok = false;
+    if ( A == B ) ok = true;
+    console.log("matchTrack:",A,B,ok);
+    return ok;
+}
+
         async function fetchAudioFiles(shuffle,play,match) {
 
 	    logMessage('fetchAudioFiles',shuffle,play,match);
@@ -409,9 +420,15 @@ No format, just feeling
                         }
                     });
                 });
-                
+
+
                 if (playlist.length > 0) {
 		    let track=0;
+		    let h = window.location.hash.replace(/^#/, '');
+		    if ( h.length > 0 ){
+		    track = playnames.findIndex(name => matchTrack(name,h));
+		    console.log('MATCH: ', track, h );
+		    }
                     prepareTrack(track);
 	    	    if ( shuffle ) playTrack(track);
 	    	    if ( play ) playTrack(track);
