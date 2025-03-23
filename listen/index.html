@@ -170,12 +170,8 @@
 
 }
 
-	#audio-player{
-
-	}
-
-
 	#audio-player {
+	    padding-top: 4px;
 	    width: 100%;
 	}
 
@@ -447,11 +443,16 @@ function matchTrack(a,b){
 
                 if (playlist.length > 0) {
 		    let track=0;
+		    if ( shuffle ) {
+		    window.location.hash = '';
+		    } else {
 		    let h = window.location.hash.replace(/^#/, '');
 		    if ( h.length > 0 ){
 		    track = playnames.findIndex(name => matchTrack(name,h));
 		    console.log('MATCH: ', track, h );
 		    }
+		    }
+
                     prepareTrack(track);
 	    	    if ( shuffle ) playTrack(track);
 	    	    if ( play ) playTrack(track);
