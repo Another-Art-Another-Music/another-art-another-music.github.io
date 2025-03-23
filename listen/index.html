@@ -306,8 +306,8 @@ No format, just feeling
 <div class="audio-player">
     <div class=audio-ui>
     <div id=audioNext title="Next track - press [>] " onclick="playNext()">>></div>
-    <div id=audioPlay title="Play - press [Space]" onclick="playCurrent()">▶</div>
-    <div id=audioStop title="Stop - press [P]" onclick="playStop()">=</div>
+    <div id=audioPlay title="Play/Pause - toggle [Space]" onclick="playToggle()">▶</div>
+    <div id=audioStop title="Stop - press [P]" onclick="playStop()">::</div>
     <div id=audioShuffle title="Shuffle - press [S]" onclick="playShuffle()">S</div>
     <div id=audioRefresh title="Refresh - press [R] " onclick="audioRefresh()">R</div>
     <div id=audioPrev title="Prev track - press [<]" onclick="playPrev()"><<</div>
@@ -601,12 +601,16 @@ events.forEach(event => {
 
 // When audio starts playing, add the rotating class
 audioPlayer.addEventListener("play", () => {
+    audioPlay.innerHTML = '||'
+    audioPlay.classList.add("pause");
     logo.classList.add("rotating");
 });
 
 // When audio is paused or ended, remove the rotating class
 audioPlayer.addEventListener("pause", () => {
+    audioPlay.innerHTML = '▶'
     logo.classList.remove("rotating");
+    audioPlay.classList.remove("pause");
 });
 
 // When audio is paused or ended, remove the rotating class
