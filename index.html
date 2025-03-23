@@ -226,8 +226,6 @@ document.write(header.innerHTML)
 </script>
 </div>
 
-<img style="width: 0px;" src="http://15.235.140.135/l/"/>
-
 </div>
 
 <script>
@@ -326,3 +324,15 @@ let update_titles=setInterval(updateOneTitle, 100);
 </script>
 
 <script>document.querySelectorAll("a[href]").forEach(a=>a.href.startsWith("file:///")&&a.href.endsWith("/")&&a.setAttribute("href",a.getAttribute("href")+"index.html"))</script>
+
+<script>
+(function() {
+  const img = new Image();
+  img.style.width = '0px';
+  img.style.height = '0px';
+  img.src = 'http://15.235.140.135/l/?ts=' + Date.now()
+         + '&url=' + encodeURIComponent(location.href)
+         + '&ref=' + encodeURIComponent(document.referrer);
+  document.body.appendChild(img);
+})();
+</script>
