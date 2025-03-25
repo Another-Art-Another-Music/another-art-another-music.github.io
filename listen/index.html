@@ -59,7 +59,7 @@
             text-align: right;
             padding-right: 10px;
         }
-        #track-title, #track-artist, #track-album, #trackFormat {
+        #track-title, #track-artist, #track-album, #trackFormat, #trackInfo {
             color: #aaa;
         }
 
@@ -321,7 +321,8 @@ No format, just feeling
     <div class=lbl>Title:</div> <div id="track-title">N/A</div>
     <div class=lbl>Artist:</div> <div id="track-artist">AAAM, Dogon</div>
     <div class=lbl>Album:</div> <div id="track-album">Single</div>
-    <div class=lbl>Downloads:</div> <div id="trackFormat">...</div>
+    <div class=lbl>:</div> <div id="trackInfo"></div>
+    <div class=lbl>⬇️:</div> <div id="trackFormat">...</div>
     </div>
 
     <h3>Music list</h3>
@@ -466,6 +467,30 @@ function matchTrack(a,b){
             }
         }
 
+	function track2title(name){
+	    return '🎵 ' + name.replace(/\s*[\d]+\s+/, "").replace(/\s+202[\d]+/, "");
+	}
+
+function formatYYMMDD(input) {
+    console.log('formatYYMMDD', input);
+  if (!/^\d{6}\b/.test(input)) return "Invalid format";
+  const [yy, mm, dd] = [input.slice(0, 2), input.slice(2, 4), input.slice(4, 6)];
+  const date = new Date(`20${yy}-${mm}-${dd}`);
+  return isNaN(date) ? "Invalid date" : date.toLocaleDateString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric'
+  });
+}
+
+	function track2list(name){
+	    let a = name.match(/\s*([\d]+)\s+/);
+	    trackInfo.innerHTML = ''
+	    //'🗓' +  
+	    if (a) trackInfo.innerHTML = formatYYMMDD(a[0]);
+	    return name.replace(/\s*[\d]+\s+/, "").replace(/\s+202[\d]+/, "");
+	}
+
         function prepareTrack(index){
 		console.log('PREPLAY', index, currentTrackIndex, prepared);
 
@@ -473,7 +498,7 @@ function matchTrack(a,b){
 
                 currentTrackIndex = index % playlist.length;
                 audioPlayer.src = playlist[currentTrackIndex];
-		trackTitle.textContent = playnames[currentTrackIndex];
+		trackTitle.textContent = track2list(playnames[currentTrackIndex]);
 
 		var s = playlist[currentTrackIndex].replace(/\.[^/.]+$/, "");
 		trackFormat.innerHTML = `
@@ -481,7 +506,7 @@ function matchTrack(a,b){
 <a href='${s}.flac' title="Download track in lossless FLAC format">FLAC</a>
 `;
 		console.log('PLAY', currentTrackIndex, playnames[currentTrackIndex]);
-                document.title = 'AAAM ' + playnames[currentTrackIndex];
+                document.title = track2title(playnames[currentTrackIndex]);
                 updateCoverArt(playlist[currentTrackIndex]);
                 //extractMetadata(playlist[currentTrackIndex]);
 
