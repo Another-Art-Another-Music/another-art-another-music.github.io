@@ -165,11 +165,27 @@ who have time to listen.</div>
 
 <!--/HEADER-->
 
+<style>
+@keyframes rotateLogo {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.rotating {
+    animation: rotateLogo 10s linear infinite;
+    transform-origin: center;
+}
+</style>
+
 <h1>Dogon</h1>
 
 <p></p>
 <center>
-<svg height="40%" viewBox="0 0 16.933333 16.933333" width="40%" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<svg id="dogonlogo" height="40%" viewBox="0 0 16.933333 16.933333" width="40%" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
 
 <path d="m16.9333,8.4667a8.4667,8.4667 0 1,0 -16.9333,0 8.4667,8.4667 0 1,0 16.9333,0" fill-rule="evenodd" fill="#66666655"/>
 
@@ -242,6 +258,8 @@ who have time to listen.</div>
     document.addEventListener('click', () => {
       if (!document.fullscreenElement) {
         document.documentElement.requestFullscreen();
+	dogonlogo.classList.add("rotating");
+
       }
     });
 
