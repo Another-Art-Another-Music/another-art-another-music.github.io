@@ -463,7 +463,7 @@ function matchTrack(a,b){
 	    	    if ( play ) playTrack(track);
                 }
             } catch (error) {
-                console.error("Error fetching audio files:", error);
+                console.error("Error 1 fetching audio files:", error);
             }
         }
 
@@ -493,7 +493,7 @@ function formatYYMMDD(input) {
 
         function prepareTrack(index){
 		console.log('PREPLAY', index, currentTrackIndex, prepared);
-
+		reset_reconnect();
 		if ( prepared == index ) return;
 
                 currentTrackIndex = index % playlist.length;
@@ -527,21 +527,53 @@ function highlightCurrentTrack() {
     }
 }
 
-async        function playTrack(index) {
-		logMessage("playTreck ", index);
+
+reconnect_id = null;
+reconnect_try=0;
+
+audio_current_time= null;
+
+function reconnect(){
+
+  reconnect_id = null;
+
+  const url = new URL(audioPlayer.src);
+  const cleanUrl = url.origin + url.pathname; // remove all old params
+  const newSrc = `${cleanUrl}?t=${Date.now()}`;
+
+  audio_current_time = audioPlayer.currentTime;
+  logMessage("playTrack Reconnect",  audio_current_time, newSrc);
+
+  audioPlayer.src = newSrc;
+  audioPlayer.play();
+
+}
+
+function reconnect_setup(){
+    if (reconnect_id) clearTimeout(reconnect_id);
+    reconnect_id = setTimeout( reconnect , 5000); // Retry after 1s
+    reconnect_try++;
+    logMessage("reconnect_setup ", reconnect_id, reconnect_try);
+}
+
+//async     function playTrack(index) {
+            function playTrack(index) {
+
+		logMessage("playTrack ", index);
 		if (index < 0 ) index=playlist.length-1;
 
 		prepareTrack(index)
-		//audioPlayer.load();
-                //audioPlayer.play();
-        try {
-            await audioPlayer.play().catch(error => {
-                logMessage("Playback failed, retrying:", error.message);
-                setTimeout(() => audioPlayer.play(), 1000); // Retry after 1s
-            });
-        } catch (error) {
-            logMessage("Fatal playback error:", error.message);
-        }
+
+		audioPlayer.load();
+		audioPlayer.play();
+//        try {
+//            await audioPlayer.play().catch(error => {
+//                logMessage("Playback failed, retrying:", error.message);
+//		reconnect_setup();
+//            });
+//        } catch (error) {
+//            logMessage("Fatal playback error:", error.message);
+//        }
 
 	        highlightCurrentTrack();
         }
@@ -560,6 +592,7 @@ function playCurrent(){
 	playTrack( currentTrackIndex);
 }
 function playStop(){
+	reset_reconnect();
 	audioPlayer.pause();
 }
 function playShuffle(){
@@ -613,6 +646,13 @@ function logMessage(...args) {
             console.log(...args);
 }
 
+function reset_reconnect(){
+	if (reconnect_id) {
+		console.log(`cancel reconnect: ${event}`);
+		clearTimeout(reconnect_id);
+	}
+}
+
 const events = [
     "play", "pause", "ended",
     //"timeupdate",
@@ -622,9 +662,32 @@ const events = [
     "volumechange", "durationchange", "loadedmetadata", "loadeddata"
 ];
 
+
+
 events.forEach(event => {
     audioPlayer.addEventListener(event, () => {
+
+	if (event == 'progress') {
+	    return;
+	}
+
         console.log(`Audio Event: ${event}`);
+
+	if (event == 'loadstart' ) {
+	    reset_reconnect()
+	}
+
+	if (event == 'canplay' && audio_current_time) {
+	    audioPlayer.currentTime = audio_current_time
+	    console.log(`Audio fix fail from`, audioPlayer.currentTime, audio_current_time );
+	    audio_current_time = null
+	}
+
+	if (event == 'stalled' || event == 'error' ){
+	    console.log(`Audio Event: ${event}`, audioPlayer.src );
+	    reconnect_setup();
+	    //audioPlayer.src=''; /// hyphop
+	}
     });
 });
 
@@ -643,7 +706,6 @@ audioPlayer.addEventListener("pause", () => {
     audioPlay.classList.remove("pause");
 });
 
-// When audio is paused or ended, remove the rotating class
 audioPlayer.addEventListener("error", () => {
     logo.classList.remove("rotating");
     console.log("Error loading audio:", this.error);
@@ -664,6 +726,16 @@ coverArt.addEventListener("click", function () {
 });
 
         fetchAudioFiles(false,false,true);
+
+function audioInfo(){
+
+    console.log("audio info:",
+ currentTrackIndex,
+ audioPlayer.currentTime,
+ audioPlayer.src
+);
+
+}
 
 document.addEventListener('keydown', function(event) {
   const key = event.key.toLowerCase();
@@ -688,6 +760,7 @@ document.addEventListener('keydown', function(event) {
     '_': volumeDown,
     '=': volumeUp,
     'm': volumeToggle,
+    'i': audioInfo,
   };
 
   if (actions[key]) actions[key]()
