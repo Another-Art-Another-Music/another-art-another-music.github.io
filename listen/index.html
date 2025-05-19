@@ -403,6 +403,7 @@ function matchTrack(a,b){
 	    logMessage('fetchAudioFiles',shuffle,play,match);
     	    playlist = [];
     	    playnames = [];
+	    metadata = [];
 	    audioList.innerHTML = '';
 	
             try {
@@ -421,6 +422,22 @@ function matchTrack(a,b){
 
                 releases.forEach(release => {
                     const assets = release.assets || [];
+
+const parsed_meta = {};
+const lines = (release.body || "").split(/\r?\n/);
+for (const line of lines) {
+    if (!line.includes("=")) continue;
+    const [key, ...rest] = line.split("=");
+    const cleanKey = key.replace(/^TAG:/, "").trim().toLowerCase();
+    const value = rest.join("=").trim();
+    //console.log(":", cleanKey, '+', value);
+    parsed_meta[cleanKey] = value;
+}
+
+// Use parsed_meta as needed
+metadata.push(parsed_meta)
+console.log("Parsed metadata:", parsed_meta["album"]);
+
                     assets.forEach(asset => {
                         if (asset.name.endsWith("."+format)) {
                             const baseName = asset.name.replace(/\..+?$/, "");
@@ -494,6 +511,9 @@ function formatYYMMDD(input) {
 	    trackInfo.innerHTML = ''
 	    //'🗓' +  
 	    if (a) trackInfo.innerHTML = formatYYMMDD(a[0]);
+
+	    let m = metadata[currentTrackIndex]["updated"]
+	    if (m) trackInfo.innerHTML += ", update: " + m.replace(/\s\+.*/,"")
 	    return name.replace(/\s*[\d]+\s+/, "").replace(/\s+202[\d]+/, "");
 	}
 
@@ -508,18 +528,21 @@ function getExtension(filename) {
 
                 currentTrackIndex = index % playlist.length;
                 audioPlayer.src = playlist[currentTrackIndex];
-
 		let ext = getExtension(audioPlayer.src);
 		audioFormat.innerText = ext
-
 		trackTitle.textContent = track2list(playnames[currentTrackIndex]);
-
 		var s = playlist[currentTrackIndex].replace(/\.[^/.]+$/, "");
 		trackFormat.innerHTML = `
 <a href='${s}.opus' title="Download track in lossy OPUS format">Opus</a>,
 <a href='${s}.flac' title="Download track in lossless FLAC format">FLAC</a>,
 <a href='${s}.m4a' title="Download track in lossy AAC format">AAC</a>
 `;
+
+
+		trackAlbum.innerText = metadata[currentTrackIndex]["album"] || "Single";
+
+//		console.log(metadata[currentTrackIndex]);
+
 		console.log('PLAY', currentTrackIndex, playnames[currentTrackIndex]);
                 document.title = track2title(playnames[currentTrackIndex]);
                 updateCoverArt(playlist[currentTrackIndex]);
