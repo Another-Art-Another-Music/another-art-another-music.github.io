@@ -201,6 +201,11 @@
 	    line-height: 24px;
 	    margin-left: 6px;
 	}
+
+	#audioFormat{
+	    color: gray;
+	}
+
 	.audio-ui div:hover {
 	    cursor: pointer;
 	    border: 1px solid #888;
@@ -312,6 +317,7 @@ No format, just feeling
     <div id=audioRefresh title="Refresh - press [R] " onclick="audioRefresh()">R</div>
     <div id=audioPrev title="Prev track - press [<]" onclick="playPrev()"><<</div>
     <div id=audioShare title="Share link to listen this track" onclick="shareLink(this)">🔗</div>
+    <div id=audioFormat onclick=""></div>
     <audio id="audio-player" controls preload="auto" ></audio>
     </div>
 
@@ -491,6 +497,10 @@ function formatYYMMDD(input) {
 	    return name.replace(/\s*[\d]+\s+/, "").replace(/\s+202[\d]+/, "");
 	}
 
+function getExtension(filename) {
+  return filename.split('.').pop().toLowerCase();
+}
+
         function prepareTrack(index){
 		console.log('PREPLAY', index, currentTrackIndex, prepared);
 		reset_reconnect();
@@ -498,12 +508,17 @@ function formatYYMMDD(input) {
 
                 currentTrackIndex = index % playlist.length;
                 audioPlayer.src = playlist[currentTrackIndex];
+
+		let ext = getExtension(audioPlayer.src);
+		audioFormat.innerText = ext
+
 		trackTitle.textContent = track2list(playnames[currentTrackIndex]);
 
 		var s = playlist[currentTrackIndex].replace(/\.[^/.]+$/, "");
 		trackFormat.innerHTML = `
 <a href='${s}.opus' title="Download track in lossy OPUS format">Opus</a>,
-<a href='${s}.flac' title="Download track in lossless FLAC format">FLAC</a>
+<a href='${s}.flac' title="Download track in lossless FLAC format">FLAC</a>,
+<a href='${s}.m4a' title="Download track in lossy AAC format">AAC</a>
 `;
 		console.log('PLAY', currentTrackIndex, playnames[currentTrackIndex]);
                 document.title = track2title(playnames[currentTrackIndex]);
