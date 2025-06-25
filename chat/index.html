@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>P2P Chat Wall (WebRTC, Manual Signal)</title>
+  <style>
+    #chat { border:1px solid #aaa; height:150px; overflow:auto; margin-bottom:8px; padding:4px;}
+    textarea { width: 100%; height: 60px; }
+  </style>
+</head>
+<body>
+<h2>P2P Chat Wall (WebRTC, Manual Signaling)</h2>
+<div id="chat"></div>
+<input id="msg" placeholder="Type message" onkeydown="if(event.key=='Enter')send()">
+<button onclick="send()">Send</button>
+<hr>
+<button onclick="createOffer()">Create Offer (Host)</button>
+<button onclick="createAnswer()">Create Answer (Join)</button>
+<br>
+<label>Signal Exchange:</label>
+<textarea id="signal"></textarea>
+<button onclick="setSignal()">Set Remote Signal</button>
+<script>
+let pc = new RTCPeerConnection();
+let channel;
+let chat = document.getElementById('chat');
+function addMsg(msg) { chat.innerHTML += `<div>${msg}</div>`; chat.scrollTop = chat.scrollHeight; }
+
+function createOffer() {
+  channel = pc.createDataChannel("chat");
+  setupChannel();
+  pc.createOffer().then(o => pc.setLocalDescription(o)).then(() => {
+    document.getElementById('signal').value = btoa(JSON.stringify(pc.localDescription));
+  });
+}
+function createAnswer() {
+  pc.ondatachannel = (e) => { channel = e.channel; setupChannel(); };
+}
+pc.onicecandidate = e => {
+  if (pc.localDescription && pc.iceGatheringState === 'complete') {
+    document.getElementById('signal').value = btoa(JSON.stringify(pc.localDescription));
+  }
+};
+function setSignal() {
+  let data = JSON.parse(atob(document.getElementById('signal').value));
+  pc.setRemoteDescription(data).then(() => {
+    if (data.type == "offer") {
+      pc.createAnswer().then(a => pc.setLocalDescription(a)).then(() => {
+        document.getElementById('signal').value = btoa(JSON.stringify(pc.localDescription));
+      });
+    }
+  });
+}
+function setupChannel() {
+  channel.onmessage = e => addMsg("Peer: "+e.data);
+  channel.onopen = () => addMsg("<i>Connected!</i>");
+}
+function send() {
+  let msg = document.getElementById('msg').value;
+  if (msg && channel && channel.readyState=="open") {
+    addMsg("You: "+msg);
+    channel.send(msg);
+    document.getElementById('msg').value = "";
+  }
+}
+</script>
+<div>
+<hr>
+How it works:
+<ul>
+<li>One user clicks “Create Offer (Host)”, copies the code from the textarea, and shares it (manually!) to the other user.
+<li>The other user clicks “Create Answer (Join)”, pastes the code, clicks “Set Remote Signal”, copies the new answer code, and sends it back.
+<li>The host user pastes that answer code and clicks “Set Remote Signal”.
+<li>Once both sides see “Connected!”, you can chat—direct, peer-to-peer, no backend needed after the handshake.
+</ul>
+
+</div>
+</body>
+</html>
