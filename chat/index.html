@@ -6,6 +6,7 @@
   <style>
     #chat { border:1px solid #aaa; height:150px; overflow:auto; margin-bottom:8px; padding:4px;}
     textarea { width: 100%; height: 60px; }
+    #copy-btn { margin-top: 4px; }
   </style>
 </head>
 <body>
@@ -19,6 +20,8 @@
 <br>
 <label>Signal Exchange:</label>
 <textarea id="signal"></textarea>
+<button id="copy-btn" onclick="copySignal()">Copy</button>
+<span id="copy-status" style="color:green; margin-left:8px;"></span>
 <button onclick="setSignal()">Set Remote Signal</button>
 <script>
 let pc = new RTCPeerConnection();
@@ -62,6 +65,22 @@ function send() {
     channel.send(msg);
     document.getElementById('msg').value = "";
   }
+}
+
+// Copy to clipboard functionality
+function copySignal() {
+  let ta = document.getElementById('signal');
+  ta.select();
+  ta.setSelectionRange(0, 99999); // For mobile devices
+  document.execCommand('copy');
+  // Newer browsers:
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(ta.value);
+  }
+  // Show status
+  let status = document.getElementById('copy-status');
+  status.textContent = 'Copied!';
+  setTimeout(() => status.textContent = '', 1200);
 }
 </script>
 <div>
