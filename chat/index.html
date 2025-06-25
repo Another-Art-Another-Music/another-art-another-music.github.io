@@ -24,7 +24,14 @@
 <span id="copy-status" style="color:green; margin-left:8px;"></span>
 <button onclick="setSignal()">Set Remote Signal</button>
 <script>
-let pc = new RTCPeerConnection();
+//let pc = new RTCPeerConnection();
+
+let pc = new RTCPeerConnection({
+  iceServers: [
+    { urls: "stun:stun.l.google.com:19302" }
+  ]
+});
+
 let channel;
 let chat = document.getElementById('chat');
 function addMsg(msg) { chat.innerHTML += `<div>${msg}</div>`; chat.scrollTop = chat.scrollHeight; }
