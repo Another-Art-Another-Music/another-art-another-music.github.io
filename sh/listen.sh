@@ -55,7 +55,6 @@ CMD(){
 play_with() {
     echo "MPV backend"
     CMD mpv --playlist="$PLAYLIST_FILE" --loop-playlist=inf "$@"
-    //--shuffle --no-video
 }
 
 fetch_and_create_playlist
