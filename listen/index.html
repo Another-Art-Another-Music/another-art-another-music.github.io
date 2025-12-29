@@ -357,7 +357,8 @@ No format, just feeling
     </script>
 
     <script>
-        const repoApiUrl = "https://api.github.com/repos/Another-Art-Another-Music/music/releases";
+	let per_page=100;
+        let repoApiUrl = "https://api.github.com/repos/Another-Art-Another-Music/music/releases" + "?per_page=" + per_page;
         const audioList = document.getElementById("audio-list");
         const audioPlayer = document.getElementById("audio-player");
         const coverArt = document.getElementById("cover-art");
