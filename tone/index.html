@@ -15,7 +15,7 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font:13px/1.
 /* header */
 .header{
   display:flex;align-items:center;gap:6px;
-  position:sticky;top:0;z-index:5;
+  position:sticky;top:0;z-index:10;
   padding:8px 0;background:rgba(11,11,13,.95);
 }
 .hdr{color:var(--mut);font-weight:700;white-space:nowrap}
@@ -37,22 +37,40 @@ button:disabled{opacity:.5;cursor:default}
 .masterLine input{flex:1;height:28px;min-width:0;touch-action: pan-y}
 .xbtn{border-color:var(--warn)}
 .xbtn.on{background:#2b1218}
+.micbtn.on{border-color:rgba(255,255,255,.25)}
+
+/* spectrum row (SECOND ROW) */
+.specRow{
+  border:1px solid var(--line);
+  border-radius:12px;
+  padding:6px;
+  margin-top:8px;
+  background:#0f0f14;
+}
+.specTop{
+  display:flex;align-items:center;gap:6px;
+  margin-bottom:6px;
+}
+.specLabel{color:var(--mut);font-weight:700;white-space:nowrap}
+.specTop .hint{color:var(--mut);font-size:12px;white-space:nowrap;opacity:.85}
+.specTop .sp{flex:1}
+#spec{
+  width:100%;
+  height:160px;
+  display:block;
+  border-radius:10px;
+  background:#0b0b0d;
+  border:1px solid rgba(255,255,255,.06);
+}
 
 /* layers */
 .layers{display:flex;flex-direction:column;gap:6px;margin-top:8px}
 .layer{border:1px solid var(--line);border-radius:12px;padding:6px}
-
-/* rows */
 .row{display:flex;align-items:center;gap:6px;flex-wrap:nowrap;min-width:0}
 .row + .row{margin-top:6px}
 
 /* TOP ROW: 3 sections */
-.topRow{
-  display:flex;
-  align-items:center;
-  gap:6px;
-  touch-action:none;
-}
+.topRow{display:flex;align-items:center;gap:6px;touch-action:none}
 
 /* zones: small finger size */
 .zone{
@@ -102,7 +120,7 @@ button:disabled{opacity:.5;cursor:default}
 .vol{flex:1;height:30px;min-width:0;touch-action: pan-y}
 input[type=range]{width:100%}
 
-/* presets */
+/* presets (bottom) */
 .presets{
   margin-top:10px;
   border:1px solid var(--line);
@@ -110,12 +128,7 @@ input[type=range]{width:100%}
   padding:8px;
 }
 .pTitle{color:var(--mut);font-weight:700;margin:0 0 6px 0}
-.pItem{
-  display:flex;
-  gap:6px;
-  align-items:flex-start;
-  margin:6px 0;
-}
+.pItem{display:flex;gap:6px;align-items:flex-start;margin:6px 0}
 .pItem button{padding:6px 8px;border-radius:10px;white-space:nowrap}
 .pText{color:var(--mut);font-size:12px;line-height:1.25}
 </style>
@@ -126,6 +139,7 @@ input[type=range]{width:100%}
 <div class="header">
   <div class="hdr">Kargyraa</div>
   <button id="btnS">S</button>
+  <button id="btnMic" class="micbtn" disabled>M</button>
   <button id="btnAdd" disabled>+</button>
 
   <div class="masterLine">
@@ -134,11 +148,22 @@ input[type=range]{width:100%}
   </div>
 </div>
 
+<!-- SECOND ROW: spectrum -->
+<div class="specRow">
+  <div class="specTop">
+    <div class="specLabel">spectrum</div>
+    <div class="hint">tap MIC, allow mic</div>
+    <div class="sp"></div>
+    <div class="hint" id="specInfo">MIC off</div>
+  </div>
+  <canvas id="spec" width="900" height="160"></canvas>
+</div>
+
+<!-- layers only AFTER spectrum -->
 <div id="layers" class="layers"></div>
 
 <div class="presets" id="presets">
   <div class="pTitle">presets</div>
-  <!-- filled by JS -->
 </div>
 
 </div>
@@ -157,17 +182,28 @@ var masterMuted = 0;
 var masterSaved = 0.9;
 
 var btnS = document.getElementById("btnS");
+var btnMic = document.getElementById("btnMic");
 var btnAdd = document.getElementById("btnAdd");
 var masterVol = document.getElementById("masterVol");
 var masterX = document.getElementById("masterX");
 var layersEl = document.getElementById("layers");
 var presetsEl = document.getElementById("presets");
 
+var spec = document.getElementById("spec");
+var specInfo = document.getElementById("specInfo");
+var g2 = spec.getContext("2d");
+
 var NOTE_NAMES = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
 var COLORS = ["#ff4d4d","#ff9f1a","#ffd60a","#2ecc71","#1abc9c","#00bbff","#3d7eff","#a66bff","#ff5bd6"];
 
-var layers = []; // {osc,vol,gL,gR,merger}
+var layers = []; // [{osc,vol,gL,gR,merger}]
 var nextIndex = 1;
+
+/* mic/analyser */
+var micOn = 0;
+var micStream = null;
+var micSrc = null;
+var ana = null;
 
 function clamp(x,a,b){ return x<a?a : (x>b?b:x); }
 
@@ -245,7 +281,7 @@ function ensureAudio(){
   return 1;
 }
 
-function stopAll(){
+function stopAllLayers(){
   for(var i=0;i<layers.length;i++){
     var L = layers[i];
     try{ smooth(L.vol.gain, 0); }catch(e){}
@@ -260,6 +296,134 @@ function stopAll(){
   layersEl.innerHTML = "";
   nextIndex = 1;
 }
+
+/* ---------- mic ---------- */
+
+function stopMic(){
+  micOn = 0;
+  btnMic.classList.remove("on");
+  specInfo.textContent = "MIC off";
+
+  if (micSrc){ try{ micSrc.disconnect(); }catch(e){} micSrc = null; }
+  if (ana){ try{ ana.disconnect(); }catch(e){} ana = null; }
+  if (micStream){
+    try{
+      var tracks = micStream.getTracks();
+      for (var i=0;i<tracks.length;i++) tracks[i].stop();
+    }catch(e){}
+    micStream = null;
+  }
+}
+
+function startMic(){
+  if (!ctx) return;
+  navigator.mediaDevices.getUserMedia({
+    audio: {
+      echoCancellation:false,
+      noiseSuppression:false,
+      autoGainControl:false
+    }
+  }).then(function(stream){
+    micStream = stream;
+    micSrc = ctx.createMediaStreamSource(stream);
+
+    ana = ctx.createAnalyser();
+    ana.fftSize = 4096;
+    ana.smoothingTimeConstant = 0.7;
+
+    micSrc.connect(ana);
+
+    micOn = 1;
+    btnMic.classList.add("on");
+    specInfo.textContent = "MIC on";
+  }).catch(function(err){
+    alert("mic denied: " + err);
+    stopMic();
+  });
+}
+
+btnMic.onclick = function(){
+  if (!running) return;
+  if (!micOn) startMic();
+  else stopMic();
+};
+
+/* log map */
+function hzToX_log(hz, fMin, fMax, w){
+  var a = Math.log(hz/fMin) / Math.log(fMax/fMin);
+  return a * w;
+}
+
+/* spectrum draw loop */
+function drawSpectrum(){
+  requestAnimationFrame(drawSpectrum);
+
+  var w = spec.width|0, h = spec.height|0;
+
+  // background
+  g2.globalAlpha = 1;
+  g2.fillStyle = "#0b0b0d";
+  g2.fillRect(0,0,w,h);
+
+  // grid/ticks
+  var fMin = 40;
+  var sr = ctx ? ctx.sampleRate : 48000;
+  var fMax = Math.min(8000, (sr/2));
+
+  var ticks = [50,100,200,400,800,1600,3200,6400];
+  g2.font = "11px ui-monospace,monospace";
+
+  for (var t=0;t<ticks.length;t++){
+    var hzT = ticks[t];
+    if (hzT < fMin || hzT > fMax) continue;
+    var xx = hzToX_log(hzT, fMin, fMax, w);
+    g2.globalAlpha = 0.25;
+    g2.fillStyle = "#eef";
+    g2.fillRect(xx, 0, 1, h);
+    g2.globalAlpha = 0.7;
+    g2.fillStyle = "#a7a7b2";
+    g2.fillText(String(hzT), xx+3, h-6);
+  }
+
+  if (!ana || !ctx){
+    g2.globalAlpha = 0.9;
+    g2.fillStyle = "#a7a7b2";
+    g2.fillText("no analyser", 10, 18);
+    return;
+  }
+
+  var n = ana.frequencyBinCount;
+  var data = new Uint8Array(n);
+  ana.getByteFrequencyData(data);
+
+  var binHz = (sr/2) / n;
+
+  g2.globalAlpha = 1;
+  g2.strokeStyle = "#eef";
+  g2.lineWidth = 1;
+  g2.beginPath();
+
+  var first = 1;
+  for (var i=1;i<n;i++){
+    var hz = i * binHz;
+    if (hz < fMin || hz > fMax) continue;
+
+    var x = hzToX_log(hz, fMin, fMax, w);
+    var v = data[i] / 255;
+    var y = h - (v * (h-18)) - 6;
+
+    if (first){
+      g2.moveTo(x,y);
+      first = 0;
+    }else{
+      g2.lineTo(x,y);
+    }
+  }
+  g2.stroke();
+}
+drawSpectrum();
+
+/* ---------- layers ---------- */
 
 function createLayerNodes(freq){
   var osc = ctx.createOscillator();
@@ -477,7 +641,7 @@ var PRESETS = [
   },
   {
     name: "Harmonics 55",
-    text: "Jaw-harp style harmonic stack. 55×(1..6).",
+    text: "Jaw-harp harmonic stack. 55×(1..6).",
     layers: [
       {f:55,  v:0.14, L:1, R:1},
       {f:110, v:0.10, L:1, R:1},
@@ -489,25 +653,15 @@ var PRESETS = [
   },
   {
     name: "Binaural 200/206",
-    text: "Slow beat (6 Hz). Left 200 Hz, Right 206 Hz.",
+    text: "Beat (6 Hz). Left 200 Hz, Right 206 Hz.",
     layers: [
       {f:200, v:0.14, L:1, R:0},
       {f:206, v:0.14, L:0, R:1}
-    ]
-  },
-  {
-    name: "Drone+Body+Scan",
-    text: "Low drone + octave body + scanner. 55 / 110 / 900.",
-    layers: [
-      {f:55,  v:0.14, L:1, R:1},
-      {f:110, v:0.09, L:1, R:1},
-      {f:900, v:0.10, L:1, R:1}
     ]
   }
 ];
 
 function renderPresets(){
-  // remove old items but keep title
   while(presetsEl.childNodes.length > 1) presetsEl.removeChild(presetsEl.lastChild);
 
   for(var i=0;i<PRESETS.length;i++){
@@ -532,7 +686,7 @@ function renderPresets(){
 
 function applyPreset(P){
   function go(){
-    stopAll();
+    stopAllLayers();
     for(var i=0;i<P.layers.length;i++){
       var L = P.layers[i];
       addLayer(L.f, L.v, L.L, L.R);
@@ -553,6 +707,7 @@ function start(after){
     running = 1;
 
     btnAdd.disabled = false;
+    btnMic.disabled = false;
     masterVol.disabled = false;
     masterX.disabled = false;
 
@@ -573,7 +728,7 @@ function start(after){
 
     if(after) after();
     else if(layers.length === 0){
-      // DEFAULT: 65.4 and 800 (as you requested)
+      // DEFAULT: 65.4 and 800
       addLayer(65.4, 0.18, 1, 1);
       addLayer(800,  0.12, 1, 1);
     }
@@ -583,17 +738,21 @@ function start(after){
 }
 
 function stop(){
-  stopAll();
+  stopMic();
+  stopAllLayers();
+
   try{ ctx.close(); }catch(e){}
   ctx = null; master = null;
 
   running = 0;
+
   masterMuted = 0;
   masterX.classList.remove("on");
   masterVol.value = "0.9";
   masterSaved = 0.9;
 
   btnAdd.disabled = true;
+  btnMic.disabled = true;
   masterVol.disabled = true;
   masterX.disabled = true;
 }
