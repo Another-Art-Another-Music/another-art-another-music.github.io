@@ -1,0 +1,613 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"/>
+<title>Kargyraa</title>
+<style>
+:root{
+  --bg:#0b0b0d; --fg:#eef; --line:#262633;
+  --btn:#1f1f2a; --warn:#3b2630; --mut:#a7a7b2;
+}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font:13px/1.15 ui-monospace,monospace}
+.wrap{max-width:900px;margin:auto;padding:8px}
+
+/* header */
+.header{
+  display:flex;align-items:center;gap:6px;
+  position:sticky;top:0;z-index:5;
+  padding:8px 0;background:rgba(11,11,13,.95);
+}
+.hdr{color:var(--mut);font-weight:700;white-space:nowrap}
+
+/* master */
+.masterLine{
+  display:flex;align-items:center;gap:6px;
+  border:1px solid var(--line);
+  border-radius:12px;padding:6px;
+  flex:1;min-width:0;
+}
+button{
+  background:var(--btn);color:var(--fg);
+  border:1px solid var(--line);
+  border-radius:10px;padding:7px 9px;
+  cursor:pointer;-webkit-tap-highlight-color: transparent;
+}
+button:disabled{opacity:.5;cursor:default}
+.masterLine input{flex:1;height:28px;min-width:0;touch-action: pan-y}
+.xbtn{border-color:var(--warn)}
+.xbtn.on{background:#2b1218}
+
+/* layers */
+.layers{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.layer{border:1px solid var(--line);border-radius:12px;padding:6px}
+
+/* rows */
+.row{display:flex;align-items:center;gap:6px;flex-wrap:nowrap;min-width:0}
+.row + .row{margin-top:6px}
+
+/* TOP ROW: 3 sections */
+.topRow{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  touch-action:none;
+}
+
+/* zones: small finger size */
+.zone{
+  width:44px; min-width:44px; height:34px;
+  display:flex;align-items:center;justify-content:center;
+  border-radius:10px;
+  user-select:none;
+  font-size:12px;
+}
+.idxZone{color:#000;font-weight:800}
+.noteZone{
+  color:var(--mut);
+  background:rgba(255,255,255,.03);
+  border:1px solid rgba(255,255,255,.08);
+}
+
+/* center < [edit] > */
+.centerCtl{
+  display:flex;align-items:center;gap:4px;
+  flex:1;min-width:0;
+  justify-content:center;
+}
+.stepBtn{
+  min-width:28px;
+  padding:6px 7px;
+  border-radius:10px;
+}
+.freqEdit{
+  width:86px;
+  max-width:38vw;
+  background:transparent;
+  color:var(--fg);
+  border:1px solid rgba(255,255,255,.10);
+  border-radius:10px;
+  padding:6px 8px;
+  font-weight:800;
+  font-size:14px;
+  line-height:1;
+  text-align:center;
+  outline:none;
+}
+.freqEdit:focus{border-color:rgba(255,255,255,.22)}
+
+/* volume row */
+.cb{width:18px;height:18px;margin:0}
+.lv{width:28px;text-align:left;color:var(--mut);font-weight:700;flex:0 0 auto}
+.vol{flex:1;height:30px;min-width:0;touch-action: pan-y}
+input[type=range]{width:100%}
+
+/* presets */
+.presets{
+  margin-top:10px;
+  border:1px solid var(--line);
+  border-radius:12px;
+  padding:8px;
+}
+.pTitle{color:var(--mut);font-weight:700;margin:0 0 6px 0}
+.pItem{
+  display:flex;
+  gap:6px;
+  align-items:flex-start;
+  margin:6px 0;
+}
+.pItem button{padding:6px 8px;border-radius:10px;white-space:nowrap}
+.pText{color:var(--mut);font-size:12px;line-height:1.25}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="header">
+  <div class="hdr">Kargyraa</div>
+  <button id="btnS">S</button>
+  <button id="btnAdd" disabled>+</button>
+
+  <div class="masterLine">
+    <input id="masterVol" type="range" min="0" max="1" step="0.001" value="0.9" disabled>
+    <button id="masterX" class="xbtn" disabled>X</button>
+  </div>
+</div>
+
+<div id="layers" class="layers"></div>
+
+<div class="presets" id="presets">
+  <div class="pTitle">presets</div>
+  <!-- filled by JS -->
+</div>
+
+</div>
+
+<script>
+(function(){
+"use strict";
+
+var AC = window.AudioContext || window.webkitAudioContext;
+
+var ctx = null;
+var master = null;
+
+var running = 0;
+var masterMuted = 0;
+var masterSaved = 0.9;
+
+var btnS = document.getElementById("btnS");
+var btnAdd = document.getElementById("btnAdd");
+var masterVol = document.getElementById("masterVol");
+var masterX = document.getElementById("masterX");
+var layersEl = document.getElementById("layers");
+var presetsEl = document.getElementById("presets");
+
+var NOTE_NAMES = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+var COLORS = ["#ff4d4d","#ff9f1a","#ffd60a","#2ecc71","#1abc9c","#00bbff","#3d7eff","#a66bff","#ff5bd6"];
+
+var layers = []; // {osc,vol,gL,gR,merger}
+var nextIndex = 1;
+
+function clamp(x,a,b){ return x<a?a : (x>b?b:x); }
+
+function smooth(param, v){
+  if(!ctx) return;
+  var t = ctx.currentTime;
+  try{
+    param.cancelScheduledValues(t);
+    param.setValueAtTime(param.value, t);
+    param.linearRampToValueAtTime(v, t + 0.02);
+  }catch(e){
+    try{ param.value = v; }catch(e2){}
+  }
+}
+
+function levelXX(v){
+  var n = Math.round(clamp(+v,0,1) * 99);
+  return (n<10 ? "0" : "") + n;
+}
+
+function noteLabel(f){
+  f = +f;
+  if(!(f>0)) return "--";
+  var m = 69 + 12*Math.log(f/440)/Math.log(2);
+  var mi = Math.round(m);
+  var f0 = 440*Math.pow(2, (mi-69)/12);
+  var cents = 1200*Math.log(f/f0)/Math.log(2);
+  var name = NOTE_NAMES[((mi%12)+12)%12];
+  var oct = Math.floor(mi/12) - 1;
+  var c = Math.round(cents);
+  if (c === 0) return name + oct + "0c";
+  return name + oct + (c>0 ? "+" : "") + c + "c";
+}
+
+function hzText(f){
+  var v = clamp(+f, 1, 24000);
+  return v.toFixed(1);
+}
+
+// parse "440.5" or "D#4" / "Db4"
+function parseFreqText(s){
+  if(s == null) return NaN;
+  s = String(s).trim();
+  if(!s) return NaN;
+
+  if (s.indexOf(",") >= 0) s = s.replace(",", ".");
+
+  var n = parseFloat(s);
+  if (isFinite(n)) return n;
+
+  var m = /^([A-Ga-g])\s*([#b]?)\s*(-?\d+)$/.exec(s);
+  if(!m) return NaN;
+
+  var L = m[1].toUpperCase();
+  var acc = m[2] || "";
+  var oct = parseInt(m[3], 10);
+
+  var base = {C:0,D:2,E:4,F:5,G:7,A:9,B:11}[L];
+  if(base == null) return NaN;
+  if(acc === "#") base += 1;
+  else if(acc === "b") base -= 1;
+
+  var midi = (oct + 1) * 12 + base;
+  if(!(midi >= 0 && midi <= 127)) return NaN;
+
+  return 440 * Math.pow(2, (midi - 69)/12);
+}
+
+function ensureAudio(){
+  if(ctx) return 1;
+  try{ ctx = new AC(); }catch(e){ alert("Audio init failed"); return 0; }
+  master = ctx.createGain();
+  master.gain.value = +masterVol.value;
+  master.connect(ctx.destination);
+  return 1;
+}
+
+function stopAll(){
+  for(var i=0;i<layers.length;i++){
+    var L = layers[i];
+    try{ smooth(L.vol.gain, 0); }catch(e){}
+    try{ L.osc.stop(ctx.currentTime + 0.03); }catch(e){}
+    try{ L.osc.disconnect(); }catch(e){}
+    try{ L.vol.disconnect(); }catch(e){}
+    try{ L.gL.disconnect(); }catch(e){}
+    try{ L.gR.disconnect(); }catch(e){}
+    try{ L.merger.disconnect(); }catch(e){}
+  }
+  layers = [];
+  layersEl.innerHTML = "";
+  nextIndex = 1;
+}
+
+function createLayerNodes(freq){
+  var osc = ctx.createOscillator();
+  osc.type = "sine";
+  osc.frequency.value = freq;
+
+  var vol = ctx.createGain();
+  vol.gain.value = 0.15;
+
+  var gL = ctx.createGain(); gL.gain.value = 1;
+  var gR = ctx.createGain(); gR.gain.value = 1;
+
+  var merger = ctx.createChannelMerger(2);
+
+  osc.connect(vol);
+  vol.connect(gL);
+  vol.connect(gR);
+
+  gL.connect(merger, 0, 0);
+  gR.connect(merger, 0, 1);
+
+  merger.connect(master);
+
+  osc.start();
+
+  return {osc:osc, vol:vol, gL:gL, gR:gR, merger:merger};
+}
+
+function mkBtn(txt, cls){
+  var b = document.createElement("button");
+  b.textContent = txt;
+  if(cls) b.className = cls;
+  return b;
+}
+
+function addLayer(freq, initVol, initL, initR){
+  freq = clamp(+freq, 1, 24000);
+
+  var idx = nextIndex++;
+  var color = COLORS[(idx-1) % COLORS.length];
+
+  var nodes = createLayerNodes(freq);
+
+  var root = document.createElement("div");
+  root.className = "layer";
+
+  // top row: [IDX] [< edit >] [NOTE]
+  var top = document.createElement("div");
+  top.className = "topRow";
+
+  var incZone = document.createElement("div");
+  incZone.className = "zone idxZone";
+  incZone.style.background = color;
+  incZone.textContent = String(idx);
+
+  var center = document.createElement("div");
+  center.className = "centerCtl";
+
+  var bM = mkBtn("<","stepBtn");
+
+  var fEdit = document.createElement("input");
+  fEdit.type = "text";
+  fEdit.inputMode = "decimal";
+  fEdit.autocapitalize = "none";
+  fEdit.autocomplete = "off";
+  fEdit.spellcheck = false;
+  fEdit.className = "freqEdit";
+  fEdit.value = hzText(freq);
+
+  var bP = mkBtn(">","stepBtn");
+
+  center.appendChild(bM);
+  center.appendChild(fEdit);
+  center.appendChild(bP);
+
+  var decZone = document.createElement("div");
+  decZone.className = "zone noteZone";
+  decZone.textContent = noteLabel(freq);
+
+  top.appendChild(incZone);
+  top.appendChild(center);
+  top.appendChild(decZone);
+
+  // vol row: [L][R][XX][slider]
+  var vr = document.createElement("div");
+  vr.className = "row";
+
+  var Lc = document.createElement("input");
+  Lc.type = "checkbox"; Lc.className = "cb"; Lc.checked = (initL !== 0);
+
+  var Rc = document.createElement("input");
+  Rc.type = "checkbox"; Rc.className = "cb"; Rc.checked = (initR !== 0);
+
+  var lv = document.createElement("span");
+  lv.className = "lv";
+
+  var vsl = document.createElement("input");
+  vsl.type = "range"; vsl.min = 0; vsl.max = 1; vsl.step = 0.001;
+  vsl.className = "vol";
+
+  vr.appendChild(Lc);
+  vr.appendChild(Rc);
+  vr.appendChild(lv);
+  vr.appendChild(vsl);
+
+  root.appendChild(top);
+  root.appendChild(vr);
+  layersEl.appendChild(root);
+
+  function applyLR(){
+    smooth(nodes.gL.gain, Lc.checked ? 1 : 0);
+    smooth(nodes.gR.gain, Rc.checked ? 1 : 0);
+  }
+
+  function setVol(v){
+    v = clamp(+v, 0, 1);
+    lv.textContent = levelXX(v);
+    smooth(nodes.vol.gain, v);
+  }
+
+  function setFreq(v, writeEdit){
+    v = clamp(+v, 1, 24000);
+    smooth(nodes.osc.frequency, v);
+    decZone.textContent = noteLabel(v);
+    if(writeEdit) fEdit.value = hzText(v);
+  }
+
+  function step(d){
+    setFreq(nodes.osc.frequency.value + d*0.1, true);
+  }
+
+  function tryEditLive(){
+    var v = parseFreqText(fEdit.value);
+    if(v>0) setFreq(v, false);
+  }
+  function commitEdit(){
+    var v = parseFreqText(fEdit.value);
+    if(!(v>0)){
+      fEdit.value = hzText(nodes.osc.frequency.value);
+      return;
+    }
+    setFreq(v, true);
+  }
+
+  bM.onclick = function(){ step(-1); };
+  bP.onclick = function(){ step(+1); };
+
+  fEdit.addEventListener("input", function(){ tryEditLive(); }, {passive:true});
+  fEdit.addEventListener("blur", function(){ commitEdit(); }, {passive:true});
+  fEdit.addEventListener("keydown", function(e){
+    if(e.key === "Enter"){
+      commitEdit();
+      fEdit.blur();
+    }
+  });
+
+  Lc.onchange = applyLR;
+  Rc.onchange = applyLR;
+
+  vsl.oninput = function(){ setVol(vsl.value); };
+
+  // drag zones: SAME direction both zones (→ inc, ← dec)
+  var drag = {on:0, x0:0, f0:freq};
+  var DRAG_HZ_PER_PX = 2.0;
+
+  function down(e){
+    var tag = (e.target.tagName||"").toLowerCase();
+    if(tag === "input" || tag === "button") return;
+
+    drag.on = 1;
+    drag.x0 = e.clientX;
+    drag.f0 = nodes.osc.frequency.value;
+    if(e.currentTarget.setPointerCapture) e.currentTarget.setPointerCapture(e.pointerId);
+    e.preventDefault();
+  }
+  function move(e){
+    if(!drag.on) return;
+    var dx = e.clientX - drag.x0;
+    setFreq(drag.f0 + dx*DRAG_HZ_PER_PX, true);
+    e.preventDefault();
+  }
+  function up(e){
+    drag.on = 0;
+    e.preventDefault();
+  }
+
+  incZone.addEventListener("pointerdown", down, {passive:false});
+  decZone.addEventListener("pointerdown", down, {passive:false});
+  incZone.addEventListener("pointermove", move, {passive:false});
+  decZone.addEventListener("pointermove", move, {passive:false});
+  incZone.addEventListener("pointerup", up, {passive:false});
+  decZone.addEventListener("pointerup", up, {passive:false});
+  incZone.addEventListener("pointercancel", up, {passive:false});
+  decZone.addEventListener("pointercancel", up, {passive:false});
+
+  // init
+  applyLR();
+  setVol((initVol == null) ? 0.15 : initVol);
+  vsl.value = (initVol == null) ? 0.15 : initVol;
+  setFreq(freq, true);
+
+  layers.push(nodes);
+}
+
+/* ------------------ presets ------------------ */
+
+var PRESETS = [
+  {
+    name: "Kargyraa",
+    text: "Drone + overtone scanner. 65.4 Hz (C2) + 800 Hz.",
+    layers: [
+      {f:65.4, v:0.18, L:1, R:1},
+      {f:800,  v:0.12, L:1, R:1}
+    ]
+  },
+  {
+    name: "Harmonics 55",
+    text: "Jaw-harp style harmonic stack. 55×(1..6).",
+    layers: [
+      {f:55,  v:0.14, L:1, R:1},
+      {f:110, v:0.10, L:1, R:1},
+      {f:165, v:0.08, L:1, R:1},
+      {f:220, v:0.07, L:1, R:1},
+      {f:275, v:0.06, L:1, R:1},
+      {f:330, v:0.05, L:1, R:1}
+    ]
+  },
+  {
+    name: "Binaural 200/206",
+    text: "Slow beat (6 Hz). Left 200 Hz, Right 206 Hz.",
+    layers: [
+      {f:200, v:0.14, L:1, R:0},
+      {f:206, v:0.14, L:0, R:1}
+    ]
+  },
+  {
+    name: "Drone+Body+Scan",
+    text: "Low drone + octave body + scanner. 55 / 110 / 900.",
+    layers: [
+      {f:55,  v:0.14, L:1, R:1},
+      {f:110, v:0.09, L:1, R:1},
+      {f:900, v:0.10, L:1, R:1}
+    ]
+  }
+];
+
+function renderPresets(){
+  // remove old items but keep title
+  while(presetsEl.childNodes.length > 1) presetsEl.removeChild(presetsEl.lastChild);
+
+  for(var i=0;i<PRESETS.length;i++){
+    (function(P){
+      var item = document.createElement("div");
+      item.className = "pItem";
+
+      var b = document.createElement("button");
+      b.textContent = P.name;
+      b.onclick = function(){ applyPreset(P); };
+
+      var t = document.createElement("div");
+      t.className = "pText";
+      t.textContent = P.text;
+
+      item.appendChild(b);
+      item.appendChild(t);
+      presetsEl.appendChild(item);
+    })(PRESETS[i]);
+  }
+}
+
+function applyPreset(P){
+  function go(){
+    stopAll();
+    for(var i=0;i<P.layers.length;i++){
+      var L = P.layers[i];
+      addLayer(L.f, L.v, L.L, L.R);
+    }
+  }
+  if(!running){
+    start(go);
+  }else{
+    go();
+  }
+}
+
+/* ------------------ transport ------------------ */
+
+function start(after){
+  if(!ensureAudio()) return;
+  ctx.resume().then(function(){
+    running = 1;
+
+    btnAdd.disabled = false;
+    masterVol.disabled = false;
+    masterX.disabled = false;
+
+    // master hooks
+    masterVol.oninput = function(){
+      masterSaved = clamp(+masterVol.value, 0, 1);
+      if(!masterMuted && master) smooth(master.gain, masterSaved);
+    };
+
+    masterX.onclick = function(){
+      masterMuted = !masterMuted;
+      masterX.classList.toggle("on", masterMuted);
+      if(master) smooth(master.gain, masterMuted ? 0 : masterSaved);
+    };
+
+    masterSaved = clamp(+masterVol.value, 0, 1);
+    smooth(master.gain, masterMuted ? 0 : masterSaved);
+
+    if(after) after();
+    else if(layers.length === 0){
+      // DEFAULT: 65.4 and 800 (as you requested)
+      addLayer(65.4, 0.18, 1, 1);
+      addLayer(800,  0.12, 1, 1);
+    }
+  }).catch(function(){
+    alert("resume failed");
+  });
+}
+
+function stop(){
+  stopAll();
+  try{ ctx.close(); }catch(e){}
+  ctx = null; master = null;
+
+  running = 0;
+  masterMuted = 0;
+  masterX.classList.remove("on");
+  masterVol.value = "0.9";
+  masterSaved = 0.9;
+
+  btnAdd.disabled = true;
+  masterVol.disabled = true;
+  masterX.disabled = true;
+}
+
+btnS.onclick = function(){
+  if(!running) start(null);
+  else stop();
+};
+
+btnAdd.onclick = function(){ if(ctx) addLayer(220, 0.12, 1, 1); };
+
+renderPresets();
+
+})();
+</script>
+</body>
+</html>
