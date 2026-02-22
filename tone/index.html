@@ -61,6 +61,7 @@ button:disabled{opacity:.5;cursor:default}
   border-radius:10px;
   background:#0b0b0d;
   border:1px solid rgba(255,255,255,.06);
+  touch-action:none;
 }
 
 /* layers */
@@ -152,11 +153,11 @@ input[type=range]{width:100%}
 <div class="specRow">
   <div class="specTop">
     <div class="specLabel">spectrum</div>
-    <div class="hint">tap MIC, allow mic</div>
+    <div class="hint">tap M, allow mic · tap spectrum = freeze</div>
     <div class="sp"></div>
     <div class="hint" id="specInfo">MIC off</div>
   </div>
-  <canvas id="spec" width="900" height="160"></canvas>
+  <canvas id="spec"></canvas>
 </div>
 
 <!-- layers only AFTER spectrum -->
@@ -204,6 +205,12 @@ var micOn = 0;
 var micStream = null;
 var micSrc = null;
 var ana = null;
+
+/* spectrum freeze + snapshot */
+var specFreeze = 0;
+var specLast = null;     // Uint8Array snapshot
+var specLastSR = 48000;
+var specLastN = 0;
 
 function clamp(x,a,b){ return x<a?a : (x>b?b:x); }
 
@@ -272,6 +279,33 @@ function parseFreqText(s){
   return 440 * Math.pow(2, (midi - 69)/12);
 }
 
+/* DPR-aware canvas so text is readable on mobile */
+function specResize(){
+  var dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+  var cssW = spec.clientWidth || 1;
+  var cssH = spec.clientHeight || 160;
+
+  var pxW = (cssW * dpr) | 0;
+  var pxH = (cssH * dpr) | 0;
+
+  if (spec.width !== pxW || spec.height !== pxH){
+    spec.width = pxW;
+    spec.height = pxH;
+
+    // draw in CSS pixels
+    g2.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+}
+window.addEventListener("resize", specResize, {passive:true});
+specResize();
+
+/* tap spectrum = freeze */
+spec.addEventListener("pointerdown", function(e){
+  specFreeze = !specFreeze;
+  specInfo.textContent = specFreeze ? (micOn ? "MIC on (freeze)" : "freeze") : (micOn ? "MIC on" : "MIC off");
+  e.preventDefault();
+}, {passive:false});
+
 function ensureAudio(){
   if(ctx) return 1;
   try{ ctx = new AC(); }catch(e){ alert("Audio init failed"); return 0; }
@@ -302,7 +336,7 @@ function stopAllLayers(){
 function stopMic(){
   micOn = 0;
   btnMic.classList.remove("on");
-  specInfo.textContent = "MIC off";
+  specInfo.textContent = specFreeze ? "freeze" : "MIC off";
 
   if (micSrc){ try{ micSrc.disconnect(); }catch(e){} micSrc = null; }
   if (ana){ try{ ana.disconnect(); }catch(e){} ana = null; }
@@ -334,7 +368,7 @@ function startMic(){
 
     micOn = 1;
     btnMic.classList.add("on");
-    specInfo.textContent = "MIC on";
+    specInfo.textContent = specFreeze ? "MIC on (freeze)" : "MIC on";
   }).catch(function(err){
     alert("mic denied: " + err);
     stopMic();
@@ -353,12 +387,19 @@ function hzToX_log(hz, fMin, fMax, w){
   return a * w;
 }
 
-/* peak picking: local maxima + sort + enforce spacing */
+/* peak picking */
 function findPeaks(data, binHz, fMin, fMax){
   var peaks = [];
   var iMin = Math.max(2, Math.floor(fMin / binHz));
   var iMax = Math.min(data.length - 3, Math.floor(fMax / binHz));
-  var thr = 40; // ignore quiet bins (0..255)
+
+  // adaptive threshold so labels show even on quiet mic
+  var mx = 0;
+  for (var i=iMin;i<=iMax;i++){
+    var v = data[i];
+    if (v > mx) mx = v;
+  }
+  var thr = Math.max(10, Math.floor(mx * 0.55));
 
   for (var i=iMin;i<=iMax;i++){
     var v = data[i];
@@ -370,14 +411,19 @@ function findPeaks(data, binHz, fMin, fMax){
 
   peaks.sort(function(a,b){ return b.v - a.v; });
 
-  // keep top N but avoid labels too close (in log-x space)
   var out = [];
-  var minDX = 26; // px spacing between labels
-  var usedX = [];
+  var minHzSep = 30;
 
   for (var k=0;k<peaks.length;k++){
     var hz = peaks[k].i * binHz;
     if (!(hz>=fMin && hz<=fMax)) continue;
+
+    var ok = 1;
+    for (var j=0;j<out.length;j++){
+      if (Math.abs(out[j].hz - hz) < minHzSep) { ok = 0; break; }
+    }
+    if (!ok) continue;
+
     out.push({hz:hz, v:peaks[k].v});
     if (out.length >= 3) break;
   }
@@ -388,7 +434,10 @@ function findPeaks(data, binHz, fMin, fMax){
 function drawSpectrum(){
   requestAnimationFrame(drawSpectrum);
 
-  var w = spec.width|0, h = spec.height|0;
+  specResize();
+
+  var w = spec.clientWidth|0;
+  var h = spec.clientHeight|0;
 
   // background
   g2.globalAlpha = 1;
@@ -402,6 +451,7 @@ function drawSpectrum(){
   // grid/ticks
   var ticks = [50,100,200,400,800,1600,3200,6400];
   g2.font = "11px ui-monospace,monospace";
+  g2.textBaseline = "alphabetic";
   for (var t=0;t<ticks.length;t++){
     var hzT = ticks[t];
     if (hzT < fMin || hzT > fMax) continue;
@@ -418,12 +468,32 @@ function drawSpectrum(){
     g2.globalAlpha = 0.9;
     g2.fillStyle = "#a7a7b2";
     g2.fillText("no analyser", 10, 18);
+    if (specFreeze){
+      g2.globalAlpha = 0.85;
+      g2.fillStyle = "#0b0b0d";
+      g2.fillRect(8, 6, 84, 18);
+      g2.globalAlpha = 1;
+      g2.fillStyle = "#a7a7b2";
+      g2.font = "12px ui-monospace,monospace";
+      g2.fillText("FREEZE", 12, 20);
+    }
     return;
   }
 
   var n = ana.frequencyBinCount;
-  var data = new Uint8Array(n);
-  ana.getByteFrequencyData(data);
+
+  // live or frozen snapshot
+  var data;
+  if (specFreeze && specLast && specLastN === n){
+    data = specLast;
+    sr = specLastSR;
+  }else{
+    data = new Uint8Array(n);
+    ana.getByteFrequencyData(data);
+    specLast = data;
+    specLastSR = sr;
+    specLastN = n;
+  }
 
   var binHz = (sr/2) / n;
 
@@ -455,31 +525,53 @@ function drawSpectrum(){
   var peaks = findPeaks(data, binHz, fMin, fMax);
 
   g2.font = "12px ui-monospace,monospace";
-  for (var p=0;p<peaks.length;p++){
-    var hzP = peaks[p].hz;
-    var xP = hzToX_log(hzP, fMin, fMax, w);
+  g2.textBaseline = "top";
 
-    // marker
-    g2.globalAlpha = 0.95;
-    g2.fillStyle = "#eef";
-    g2.fillRect(xP, 0, 1, h-18);
-
-    // label
-    var txt = Math.round(hzP) + "Hz " + noteLabel(hzP);
-    var tx = xP + 4;
-    var ty = 14 + p*14;
-
-    // keep inside
-    if (tx > w - 220) tx = xP - 4 - 220;
-    if (tx < 2) tx = 2;
-
+  if (!peaks.length){
     g2.globalAlpha = 0.9;
-    g2.fillStyle = "#0b0b0d";
-    g2.fillRect(tx-2, ty-11, 220, 14);
+    g2.fillStyle = "#a7a7b2";
+    g2.fillText("no peaks (try louder / closer)", 10, 8);
+  }else{
+    for (var p=0;p<peaks.length;p++){
+      var hzP = peaks[p].hz;
+      var xP = hzToX_log(hzP, fMin, fMax, w);
 
+      // marker
+      g2.globalAlpha = 0.95;
+      g2.fillStyle = "#eef";
+      g2.fillRect(xP, 0, 1, h);
+
+      // label
+      var txt = Math.round(hzP) + "Hz " + noteLabel(hzP);
+      var tx = xP + 4;
+      var ty = 6 + p*16;
+
+      if (tx > w - 240) tx = xP - 4 - 240;
+      if (tx < 2) tx = 2;
+
+      g2.globalAlpha = 0.85;
+      g2.fillStyle = "#0b0b0d";
+      g2.fillRect(tx-3, ty-2, 240, 16);
+
+      g2.globalAlpha = 1;
+      g2.strokeStyle = "#000";
+      g2.lineWidth = 3;
+      g2.strokeText(txt, tx, ty);
+
+      g2.fillStyle = "#eef";
+      g2.fillText(txt, tx, ty);
+    }
+  }
+
+  if (specFreeze){
+    g2.globalAlpha = 0.85;
+    g2.fillStyle = "#0b0b0d";
+    g2.fillRect(8, 6, 84, 18);
     g2.globalAlpha = 1;
-    g2.fillStyle = "#eef";
-    g2.fillText(txt, tx, ty);
+    g2.fillStyle = "#a7a7b2";
+    g2.font = "12px ui-monospace,monospace";
+    g2.textBaseline = "alphabetic";
+    g2.fillText("FREEZE", 12, 20);
   }
 }
 drawSpectrum();
@@ -702,7 +794,7 @@ var PRESETS = [
   },
   {
     name: "Harmonics 55",
-    text: "Jaw-harp harmonic stack. 55×(1..6).",
+    text: "Jaw-harp harmonic stack. 55(1..6).",
     layers: [
       {f:55,  v:0.14, L:1, R:1},
       {f:110, v:0.10, L:1, R:1},
