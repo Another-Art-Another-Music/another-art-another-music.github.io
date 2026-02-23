@@ -1,0 +1,554 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+<title>Impactum Corridor [A3M] - Dogon</title>
+<style>
+  html,body{margin:0;height:100%;background:#000;overflow:hidden}
+  #fs{position:fixed;inset:0;background:#000;overflow:hidden}
+  canvas{display:block;width:100%;height:100%;touch-action:none}
+
+  /* XOR / exclusion vibe for overlays */
+  .ov{
+    position:absolute;inset:0;
+    pointer-events:none;user-select:none;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    mix-blend-mode:difference;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: geometricPrecision;
+  }
+
+  /* splash title (30% from top) */
+  #splash{
+    position:absolute;left:50%;top:30%;
+    transform:translate(-50%,-50%);
+    opacity:0;
+    text-align:center;
+    white-space:pre;
+    line-height:.45;
+    letter-spacing:.06em;
+    font-weight:900;
+    font-size: clamp(28px, 6.6vh, 96px);
+  }
+  #splash.on{opacity:1}
+
+  #splash .t{ color:#f22; display:block; }
+  #splash .a3m{ color:#fff; display:block; font-weight:800; letter-spacing:.14em; font-size:.52em; margin-top:.0em; }
+  #splash .dogon{ color:#fff; display:block; font-weight:800; letter-spacing:.18em; font-size:.25em; margin-top:-2.4em; }
+
+  /* big center text (digits / READY / GO) */
+  #big{
+    position:absolute;left:50%;top:50%;
+    transform:translate(-50%,-50%);
+    color:#fff;
+    font-weight:800;
+    letter-spacing:0.08em;
+    line-height:1;
+    opacity:0;
+    font-size: clamp(64px, 18vh, 240px);
+    white-space:pre;
+    text-align:center;
+  }
+
+  /* center words */
+  #words{
+    position:absolute;left:50%;top:62%;
+    transform:translate(-50%,-50%);
+    color:#fff;
+    font-weight:700;
+    opacity:0;
+    font-size: clamp(18px, 4.2vh, 54px);
+    line-height:1.15;
+    white-space:pre;
+    max-width:min(92vw, 1200px);
+    text-align:center;
+  }
+
+  /* small HUD */
+  #corner{
+    position:absolute;right:14px;bottom:12px;
+    color:#fff;
+    font-weight:700;
+    opacity:0;
+    font-size: clamp(12px, 1.7vh, 18px);
+    line-height:1.25;
+    white-space:pre;
+  }
+
+  /* hard black overlay for pre-count */
+  #blk{
+    position:absolute;inset:0;
+    background:#000;
+    opacity:0;
+    pointer-events:none;
+    transition: opacity .12s linear;
+  }
+  #blk.on{opacity:1}
+</style>
+</head>
+<body>
+
+<div id="fs">
+  <canvas id="c"></canvas>
+  <div id="blk"></div>
+  <div class="ov">
+    <div id="splash">
+      <span class="t">Impactum — Corridor</span>
+      <span class="a3m">[A3M]</span>
+      <span class="dogon">DOGON</span>
+    </div>
+    <div id="big">3</div>
+    <div id="words"></div>
+    <div id="corner"></div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  var root = document.getElementById("fs");
+  var canvas = document.getElementById("c");
+  var gl = canvas.getContext("webgl", { antialias:false, alpha:false, premultipliedAlpha:false });
+  if (!gl){ alert("WebGL not supported"); return; }
+
+  function compile(type, src){
+    var sh = gl.createShader(type);
+    gl.shaderSource(sh, src);
+    gl.compileShader(sh);
+    if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)){
+      var log = gl.getShaderInfoLog(sh) || "(no log)";
+      gl.deleteShader(sh);
+      throw new Error("Shader compile failed:\n" + log);
+    }
+    return sh;
+  }
+  function link(vs, fs){
+    var p = gl.createProgram();
+    gl.attachShader(p, vs);
+    gl.attachShader(p, fs);
+    gl.linkProgram(p);
+    if (!gl.getProgramParameter(p, gl.LINK_STATUS)){
+      var log = gl.getProgramInfoLog(p) || "(no log)";
+      gl.deleteProgram(p);
+      throw new Error("Program link failed:\n" + log);
+    }
+    return p;
+  }
+
+  var VS = [
+    "attribute vec2 aPos;",
+    "varying vec2 vUv;",
+    "void main(){",
+    "  vUv = aPos*0.5 + 0.5;",
+    "  gl_Position = vec4(aPos,0.0,1.0);",
+    "}"
+  ].join("\n");
+
+  var FS = [
+    "precision mediump float;",
+    "varying vec2 vUv;",
+    "uniform vec2 uRes;",
+    "uniform float uTime;",
+    "uniform float uBeat;",
+    "uniform float uStrength;",
+
+    "float hash(vec2 p){",
+    "  p = fract(p*vec2(123.34, 345.45));",
+    "  p += dot(p, p+34.345);",
+    "  return fract(p.x*p.y);",
+    "}",
+
+    "vec3 pal(float t){",
+    "  vec3 a = vec3(0.08, 0.08, 0.10);",
+    "  vec3 b = vec3(0.45, 0.50, 0.55);",
+    "  vec3 c = vec3(0.90, 0.80, 0.70);",
+    "  vec3 d = vec3(0.10, 0.20, 0.30);",
+    "  return a + b*cos(11116.28318*(c*t + d));",
+    "}",
+
+    "vec2 warp(vec2 p, float t, float k){",
+    "  p += k*0.10*vec2(sin(p.y*t*100.1 + t*0.7), sin(p.x*2.0 - t*0.6));",
+    "  p += k*0.06*vec2(sin((p.x+p.y)*3.0 + t), sin((p.x-p.y)*3.1 - t));",
+    "  return p;",
+    "}",
+
+    "float fractal(vec2 p, float t){",
+    "  vec2 c = vec2(0.28*cos(t*0.23) + 0.50*sin(t*0.11),",
+    "                0.28*sin(t*0.19) - 0.10*cos(t*0.13));",
+    "  float m = 0.0;",
+    "  vec2 z = p;",
+    "  for (int i=0;i<42;i++){",
+    "    z = vec2(z.x*z.x - z.y*z.y, 2.1*z.x*z.y) + c;",
+    "    if (dot(z,z) > 16.0) break;",
+    "    m += 1.0;",
+    "  }",
+    "  return m/42.0;",
+    "}",
+
+    "void main(){",
+    "  vec2 p = (vUv*2.0 - 1.0);",
+    "  p.x *= uRes.x / max(1.0, uRes.y);",
+
+    "  float t = uTime;",
+    "  float b = clamp(uBeat, 0.0, 1.0);",
+    "  float k = uStrength + b*0.6;",
+
+    "  p *= .95;",
+    "  p = warp(p, t, k);",
+
+    "  float v = fractal(p, t);",
+
+    "  float grain = hash(vUv + fract(t))*0.03;",
+    "  float vign = smoothstep(1.3, 0.2, length(p));",
+
+    "  vec3 col = pal(v*4.1 + .10*sin(t*0.07));",
+    "  col *= (0.35 + 0.65*vign);",
+    "  col += grain;",
+    "  col *= (1.3 + b*1.12);",
+
+    "  gl_FragColor = vec4(col, 1.0);",
+    "}"
+  ].join("\n");
+
+  var prog;
+  try { prog = link(compile(gl.VERTEX_SHADER, VS), compile(gl.FRAGMENT_SHADER, FS)); }
+  catch(e){ console.error(e); alert(String(e.message||e)); return; }
+
+  gl.useProgram(prog);
+
+  var buf = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+    -1,-1,  +1,-1,  -1,+1,
+    -1,+1,  +1,-1,  +1,+1
+  ]), gl.STATIC_DRAW);
+
+  var aPos = gl.getAttribLocation(prog, "aPos");
+  gl.enableVertexAttribArray(aPos);
+  gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
+
+  var uRes      = gl.getUniformLocation(prog, "uRes");
+  var uTime     = gl.getUniformLocation(prog, "uTime");
+  var uBeat     = gl.getUniformLocation(prog, "uBeat");
+  var uStrength = gl.getUniformLocation(prog, "uStrength");
+
+  function resize(){
+    var dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+    var w = Math.floor(innerWidth * dpr);
+    var h = Math.floor(innerHeight * dpr);
+    if (canvas.width !== w || canvas.height !== h){
+      canvas.width = w; canvas.height = h;
+      gl.viewport(0, 0, w, h);
+    }
+  }
+  window.addEventListener("resize", resize);
+
+  // overlays
+  var splash= document.getElementById("splash");
+  var big   = document.getElementById("big");
+  var words = document.getElementById("words");
+  var corner= document.getElementById("corner");
+  var blk   = document.getElementById("blk");
+
+  function setOpacity(el, on){ el.style.opacity = on ? "1" : "0"; }
+
+  // fullscreen helper
+  function isFS(){ return !!(document.fullscreenElement || document.webkitFullscreenElement); }
+  function reqFS(el){
+    if (el.requestFullscreen) return el.requestFullscreen();
+    if (el.webkitRequestFullscreen) return el.webkitRequestFullscreen();
+  }
+  function exitFS(){
+    if (document.exitFullscreen) return document.exitFullscreen();
+    if (document.webkitExitFullscreen) return document.webkitExitFullscreen();
+  }
+  function toggleFS(){ if (!isFS()) reqFS(root); else exitFS(); }
+
+  // ----------------------------
+  // Pre-count: BLACK screen 3 2 1 READY GO then run
+  // ----------------------------
+  var pre = {
+    active: 1,
+    seq: [
+      [1.0, "3"],
+      [1.0, "2"],
+      [1.0, "1"],
+      [0.9, "READY"],
+      [0.7, "GO"]
+    ],
+    i: 0,
+    left: 1.0
+  };
+
+  function preStart(){
+    pre.active = 1;
+    pre.i = 0;
+    pre.left = pre.seq[0][0];
+    blk.className = "on";
+
+    // show splash only during pre-count
+    splash.className = "on";
+
+    setOpacity(big, 1);
+    big.textContent = pre.seq[0][1];
+
+    setOpacity(words, 0);
+    setOpacity(corner, 0);
+  }
+
+  function preStep(dt){
+    if (!pre.active) return 0;
+    pre.left -= dt;
+    while (pre.left <= 0){
+      pre.i++;
+      if (pre.i >= pre.seq.length){
+        pre.active = 0;
+        blk.className = "";
+
+        // hide splash after pre-count
+        splash.className = "";
+
+        setOpacity(big, 0);
+        big.textContent = "";
+        updateCorner();
+        return 1;
+      }
+      pre.left += pre.seq[pre.i][0];
+      big.textContent = pre.seq[pre.i][1];
+    }
+    return 0;
+  }
+
+  // ----------------------------
+  // Features
+  // ----------------------------
+  var paused = 0;
+
+  var showBig = 1, bigStart = 0, bigLastSec = -1;
+  var showCorner = 0;
+  var showWords = 0;
+
+  var wordsSeq = [
+    [0.0, ""],
+    [1.2, "silence is a texture"],
+    [2.0, "noise is a color"],
+    [2.3, "fractal is a breath"],
+    [2.6, "Dogon: a path of knowing"]
+  ];
+  var wordsIdx = 0, wordsNextAt = 0;
+
+  var AC = window.AudioContext || window.webkitAudioContext;
+  var ac = null, node = null, gain = null;
+  var muted = 1;
+
+  // ocean state
+  var o_i = 0;
+  var o_y = 0;
+
+  function fract(x){ return x - Math.floor(x); }
+
+  function ocean01(i){
+    var x = Math.sin(i * 91.345 + 73.853) * 43758.5453;
+    return fract(x);
+  }
+  function oceanC(i){
+    return ocean01(i) - 0.5;
+  }
+
+  function ensureAudio(){
+    if (ac || !AC) return;
+
+    ac = new AC();
+
+    // stereo output (matches your C)
+    node = ac.createScriptProcessor(2048, 0, 2);
+
+    gain = ac.createGain();
+    gain.gain.value = 0.0;
+
+    node.onaudioprocess = function(e){
+      var L = e.outputBuffer.getChannelData(0);
+      var R = e.outputBuffer.getChannelData(1);
+
+      var sr = e.outputBuffer.sampleRate;
+
+      // preserve original timing that assumed SR=96000:
+      // a=sin(i/384000), p=sin(i/96000)
+      var k = sr / 96000.0;
+      var divA = 384000.0 * k;
+      var divP =  96000.0 * k;
+
+      var i;
+      for (i=0;i<L.length;i++, o_i++){
+        var a = Math.sin(o_i / divA);
+        var p = Math.sin(o_i / divP);
+
+        // your C structure (intentionally brutal)
+        o_y = 0.98*o_y + oceanC(o_i) * 5.0 * (a*a) * 0.2;
+
+        L[i] = o_y * (0.6 - 0.3*p);
+        R[i] = o_y * (0.6 + 0.3*p);
+      }
+    };
+
+    node.connect(gain);
+    gain.connect(ac.destination);
+  }
+
+  function setMuted(m){
+    muted = m ? 1 : 0;
+    ensureAudio();
+    if (ac && ac.state === "suspended") ac.resume().catch(function(){});
+    if (gain) gain.gain.value = muted ? 0.0 : 0.08;
+    updateCorner();
+  }
+
+  function updateCorner(){
+    if (!showCorner || pre.active){ setOpacity(corner, 0); return; }
+    setOpacity(corner, 1);
+    corner.textContent =
+      "1 big_count  2 mini_hud  3 words  P/Space pause  F fullscreen\n" +
+      "M mute  " + (muted ? " [muted]" : "");
+  }
+
+  function toggleBigCounter(simTime){
+    showBig = !showBig;
+    if (showBig){
+      bigStart = simTime;
+      bigLastSec = -1;
+      if (!pre.active) setOpacity(big, 1);
+      big.textContent = "1";
+    } else {
+      if (!pre.active) setOpacity(big, 0);
+    }
+  }
+
+  function toggleCorner(){
+    showCorner = !showCorner;
+    updateCorner();
+  }
+
+  function toggleWords(simTime){
+    showWords = !showWords;
+    if (showWords && !pre.active){
+      wordsIdx = 0;
+      wordsNextAt = simTime + (+wordsSeq[0][0] || 0);
+      words.textContent = "";
+      setOpacity(words, 1);
+    } else {
+      words.textContent = "";
+      setOpacity(words, 0);
+    }
+  }
+
+  function togglePause(){
+    if (pre.active) return;
+    paused = !paused;
+    updateCorner();
+
+    if (paused){
+      words.textContent = "PAUSE";
+      setOpacity(words, 1);
+    } else {
+      if (showWords){
+        setOpacity(words, 1);
+      } else {
+        words.textContent = "";
+        setOpacity(words, 0);
+      }
+    }
+  }
+
+  function stopEvent(e){
+    e.preventDefault();
+    if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+    else e.stopPropagation();
+  }
+
+  // keys
+  var simTime = 0.0;
+  window.addEventListener("keydown", function(e){
+    var k = e.key;
+    var code = e.code;
+    if (k === "f" || k === "F"){ toggleFS(); stopEvent(e); return; }
+    if (k === "p" || k === "P" || code === "Space"){ togglePause(); stopEvent(e); return; }
+    if (k === "1"){ toggleBigCounter(simTime); stopEvent(e); return; }
+    if (k === "2"){ toggleCorner(); stopEvent(e); return; }
+    if (k === "3"){ toggleWords(simTime); stopEvent(e); return; }
+    if (k === "m" || k === "M"){ setMuted(!muted ? 1 : 0); stopEvent(e); return; }
+  }, true);
+
+  // mobile gesture: allow audio resume
+  window.addEventListener("pointerdown", function(){
+    ensureAudio();
+    if (ac && ac.state === "suspended") ac.resume().catch(function(){});
+  }, { passive:true });
+
+  // render loop
+  var strength = 0.35;
+  var beat = 0.0;
+  var lastReal = performance.now() * 0.001;
+
+  preStart();
+  // default muted until GO
+  // setMuted(0);
+
+  function step(){
+    resize();
+
+    var now = performance.now() * 0.001;
+    var dt = now - lastReal;
+    lastReal = now;
+    if (dt > 0.12) dt = 0.12;
+    if (dt < 0) dt = 0;
+
+    if (pre.active){
+      var finished = preStep(dt);
+      if (finished){
+        if (showBig){ setOpacity(big, 1); bigStart = simTime; bigLastSec = -1; big.textContent = "1"; }
+        if (showWords){ setOpacity(words, 1); } else { setOpacity(words, 0); }
+        setMuted(0);   // start audio after GO
+        updateCorner();
+      }
+    } else {
+      if (!paused) simTime += dt;
+
+      // big counter (your original: every second)
+      if (showBig){
+        var s = Math.floor((simTime - bigStart) + 1.0);
+        if (s < 1) s = 1;
+        if (s !== bigLastSec){
+          bigLastSec = s;
+          big.textContent = String(s);
+        }
+      }
+
+      // words sequencer
+      if (showWords && !paused){
+        if (wordsIdx < wordsSeq.length && simTime >= wordsNextAt){
+          var t = wordsSeq[wordsIdx][1];
+          words.textContent = (t != null) ? String(t) : "";
+          wordsIdx++;
+          if (wordsIdx < wordsSeq.length) wordsNextAt = simTime + (+wordsSeq[wordsIdx][0] || 0);
+        }
+      }
+    }
+
+    gl.useProgram(prog);
+    gl.uniform2f(uRes, canvas.width, canvas.height);
+    gl.uniform1f(uTime, simTime);
+    gl.uniform1f(uBeat, beat);
+    gl.uniform1f(uStrength, strength);
+    gl.drawArrays(gl.TRIANGLES, 0, 6);
+
+    requestAnimationFrame(step);
+  }
+
+  requestAnimationFrame(step);
+
+})();
+</script>
+</body>
+</html>
