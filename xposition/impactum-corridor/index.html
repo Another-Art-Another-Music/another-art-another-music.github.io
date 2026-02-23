@@ -480,11 +480,31 @@
     if (k === "m" || k === "M"){ setMuted(!muted ? 1 : 0); stopEvent(e); return; }
   }, true);
 
-  // mobile gesture: allow audio resume
-  window.addEventListener("pointerdown", function(){
-    ensureAudio();
-    if (ac && ac.state === "suspended") ac.resume().catch(function(){});
-  }, { passive:true });
+
+function isFS(){ return !!(document.fullscreenElement || document.webkitFullscreenElement); }
+function reqFS(el){
+  if (el.requestFullscreen) return el.requestFullscreen();
+  if (el.webkitRequestFullscreen) return el.webkitRequestFullscreen();
+}
+function exitFS(){
+  if (document.exitFullscreen) return document.exitFullscreen();
+  if (document.webkitExitFullscreen) return document.webkitExitFullscreen();
+}
+function toggleFS(){ if (!isFS()) reqFS(root); else exitFS(); }
+
+window.addEventListener("pointerdown", function(e){
+
+  // resume audio if needed
+  ensureAudio();
+  if (ac && ac.state === "suspended") ac.resume().catch(function(){});
+
+  // toggle fullscreen on touch / click
+  // (ignore if user clicked while already in UI pre-block? — not needed here)
+  // toggleFS();
+  if (!isFS()) toggleFS();
+
+}, { passive:true });
+
 
   // render loop
   var strength = 0.35;
