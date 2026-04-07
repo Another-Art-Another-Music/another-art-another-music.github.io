@@ -1472,3 +1472,11 @@
 		white-space: nowrap;
 	}
 }
+
+@media (max-width: 760px) {
+	.a3m-player[data-mode="full"] .a3m-loadmore {
+		height: 26px;
+		padding: 4 2px;
+		font-size: 0.76em;
+	}
+}

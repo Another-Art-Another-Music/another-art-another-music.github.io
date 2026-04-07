@@ -330,11 +330,11 @@
 					'<aside class="a3m-side">',
 						'<div class="a3m-side-head">',
 							'<div class="a3m-list-tools">',
-								viewButton('newest', 'Newest'),
-								viewButton('album', 'Album'),
-								viewButton('year', 'Year'),
-								viewButton('month', 'Month'),
-								viewButton('list', 'List'),
+								viewButton('newest', 'N'),
+								viewButton('album', 'A'),
+								viewButton('year', 'Y'),
+								viewButton('month', 'M'),
+								viewButton('list', 'L'),
 							'</div>',
 							'<div class="a3m-side-top">',
 								'<span class="a3m-note" data-role="count">0 tracks</span>',
@@ -1265,7 +1265,7 @@
 		const groups = groupedTracks(validView(state.view));
 		let count = 0;
 		for (let i = 0; i < groups.length; i++) count += groups[i].items.length;
-		dom.count.textContent = count + ' tracks';
+		dom.count.textContent = count + 't'; // tracks
 		dom.listEmpty.classList.toggle('a3m-hidden', count > 0);
 		dom.listEmpty.textContent = count
 			? ''
@@ -2241,8 +2241,8 @@
 
 	function updateFootNote(){
 		const pages = Object.keys(state.blocks).length;
-		const total = state.totalKnownPages ? (' / ' + state.totalKnownPages) : '';
-		dom.footNote.textContent = 'Loaded pages: ' + pages + total;
+		const total = state.totalKnownPages ? ('/' + state.totalKnownPages) : '';
+		dom.footNote.textContent = 'Lp: ' + pages + total; // Loaded Pages
 	}
 
 	function applyListRowsVisible(){
