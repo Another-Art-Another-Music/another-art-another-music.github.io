@@ -53,7 +53,7 @@
 			list: '^L',
 			loadMore: 'More',
 			pos: '^P',
-			begin: '<'
+			begin: '@'
 		},
 		modes: {
 			minimal: 'v',
@@ -83,6 +83,7 @@
 		maxSeekUpdateMs: 120,
 		sessionSaveMs: 10000,
 		fullUiHideMs: 2200,
+		fullUiLockHoldMs: 650,
 		miniVolIdleMs: 1000,
 		failedHashMs: 60 * 1000,
 		githubMinRequestMs: 5000,
@@ -142,6 +143,9 @@
 		downloadOpen: false,
 		fullUiVisible: true,
 		fullUiTimer: 0,
+		fullUiLocked: false,
+		fullUiLockTimer: 0,
+		fullUiLockPointerId: null,
 		lastMuted: null,
 		failedHash: '',
 		failedHashAt: 0,
@@ -218,7 +222,7 @@
 						esc(UI.icons.play),
 					'</button>',
 					'<button class="a3m-btn a3m-btn-small a3m-mini-btn a3m-mini-ctl-begin" type="button" ' +
-						'data-act="stop" title="Begin">',
+						'data-act="refresh" title="Begin">',
 						esc(UI.text.begin),
 					'</button>',
 					'<div class="a3m-mini-line-text a3m-mini-ctl-title" data-role="mini-line-text">',
@@ -439,6 +443,7 @@
 		window.addEventListener('resize', syncVolumeCssConfig);
 		bindPressUi();
 		bindMiniVolUi();
+		bindFullUiLockUi();
 		dom.player.addEventListener('mousemove', onFullUiActivity);
 		dom.player.addEventListener('touchstart', onFullUiActivity, { passive: true });
 	}
@@ -470,6 +475,97 @@
 		document.addEventListener('touchstart', onMiniVolTouchStart, { capture: true, passive: true });
 		document.addEventListener('touchend', onMiniVolTouchEnd, { capture: true, passive: true });
 		document.addEventListener('touchcancel', onMiniVolTouchCancel, { capture: true, passive: true });
+	}
+
+	function bindFullUiLockUi(){
+		window.addEventListener('blur', cancelFullUiLockHold);
+
+		if (window.PointerEvent) {
+			document.addEventListener('pointerdown', onFullUiLockPointerDown, true);
+			document.addEventListener('pointerup', onFullUiLockPointerEnd, true);
+			document.addEventListener('pointercancel', onFullUiLockPointerCancel, true);
+			return;
+		}
+
+		document.addEventListener('mousedown', onFullUiLockMouseDown, true);
+		document.addEventListener('mouseup', onFullUiLockMouseEnd, true);
+		document.addEventListener('touchstart', onFullUiLockTouchStart, { capture: true, passive: true });
+		document.addEventListener('touchend', onFullUiLockTouchEnd, { capture: true, passive: true });
+		document.addEventListener('touchcancel', onFullUiLockTouchCancel, { capture: true, passive: true });
+	}
+
+	function fullUiLockSurfaceFromTarget(target){
+		const node = pressTargetElement(target);
+		let surface = null;
+
+		if (!node || !dom.player || state.mode !== 'full') return null;
+		if (!dom.player.contains(node)) return null;
+		if (node.closest('button, input, a, label, [data-act], [data-role="volctl"]')) return null;
+
+		surface = node.closest('.a3m-mini, .a3m-layout');
+		return surface && dom.player.contains(surface) ? surface : null;
+	}
+
+	function startFullUiLockHold(target, pointerId){
+		if (!fullUiLockSurfaceFromTarget(target)) return;
+		cancelFullUiLockHold();
+		state.fullUiLockPointerId = pointerId;
+		state.fullUiLockTimer = setTimeout(function(){
+			state.fullUiLockTimer = 0;
+			state.fullUiLockPointerId = null;
+			toggleFullUiLock();
+		}, CFG.fullUiLockHoldMs);
+	}
+
+	function finishFullUiLockHold(pointerId){
+		if (
+			pointerId != null &&
+			state.fullUiLockPointerId != null &&
+			pointerId !== state.fullUiLockPointerId
+		) {
+			return;
+		}
+		cancelFullUiLockHold();
+	}
+
+	function cancelFullUiLockHold(){
+		if (state.fullUiLockTimer) clearTimeout(state.fullUiLockTimer);
+		state.fullUiLockTimer = 0;
+		state.fullUiLockPointerId = null;
+	}
+
+	function onFullUiLockPointerDown(e){
+		if (e.pointerType === 'mouse' && e.button != null && e.button !== 0) return;
+		startFullUiLockHold(e.target, e.pointerId);
+	}
+
+	function onFullUiLockPointerEnd(e){
+		finishFullUiLockHold(e.pointerId);
+	}
+
+	function onFullUiLockPointerCancel(){
+		cancelFullUiLockHold();
+	}
+
+	function onFullUiLockMouseDown(e){
+		if (e.button != null && e.button !== 0) return;
+		startFullUiLockHold(e.target, 'mouse');
+	}
+
+	function onFullUiLockMouseEnd(){
+		finishFullUiLockHold('mouse');
+	}
+
+	function onFullUiLockTouchStart(e){
+		startFullUiLockHold(e.target, null);
+	}
+
+	function onFullUiLockTouchEnd(){
+		finishFullUiLockHold(null);
+	}
+
+	function onFullUiLockTouchCancel(){
+		cancelFullUiLockHold();
 	}
 
 	function pressTargetElement(target){
@@ -1569,6 +1665,7 @@
 		if (document.visibilityState === 'hidden') {
 			clearPressState();
 			closeMiniVol();
+			cancelFullUiLockHold();
 			saveSessionState();
 			syncVolFocusStateSoon();
 		}
@@ -1577,6 +1674,7 @@
 	function onPageHide(){
 		clearPressState();
 		closeMiniVol();
+		cancelFullUiLockHold();
 		saveSessionState();
 		syncVolFocusStateSoon();
 	}
@@ -1650,11 +1748,34 @@
 		showFullUi();
 	}
 
+	function toggleFullUiLock(){
+		if (state.mode !== 'full') return;
+
+		state.fullUiLocked = !state.fullUiLocked;
+
+		if (state.fullUiLocked) {
+			state.fullUiVisible = true;
+			if (state.fullUiTimer) clearTimeout(state.fullUiTimer);
+			state.fullUiTimer = 0;
+			renderPlaylistState();
+			showToast('Panel locked.', 'info', 1200);
+			return;
+		}
+
+		showFullUi();
+		showToast('Panel unlocked.', 'info', 1200);
+	}
+
 	function showFullUi(){
 		state.fullUiVisible = true;
 		renderPlaylistState();
 		if (state.fullUiTimer) clearTimeout(state.fullUiTimer);
+		if (state.fullUiLocked) {
+			state.fullUiTimer = 0;
+			return;
+		}
 		state.fullUiTimer = setTimeout(function(){
+			if (state.fullUiLocked) return;
 			state.fullUiVisible = false;
 			renderPlaylistState();
 		}, CFG.fullUiHideMs);
@@ -1937,6 +2058,11 @@
 		}
 
 		state.mode = mode;
+
+		if (state.mode !== 'full') {
+			cancelFullUiLockHold();
+			state.fullUiLocked = false;
+		}
 
 		if (state.mode === 'full') {
 			showFullUi();
