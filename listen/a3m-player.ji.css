@@ -162,16 +162,22 @@
 	position: fixed;
 	inset: 0;
 	z-index: calc(var(--a3m-z-overlay) - 5);
-	display: flex;
-	flex-direction: column;
-	justify-content: flex-end;
+	display: grid;
+	grid-template-rows: minmax(0, 1fr) auto;
+	align-content: end;
 	gap: var(--a3m-gap-m);
-	padding: var(--a3m-gap-l);
+	padding: calc(var(--a3m-gap-l) + env(safe-area-inset-top, 0px)) var(--a3m-gap-l)
+		calc(var(--a3m-gap-l) + env(safe-area-inset-bottom, 0px));
 	background-position: center;
 	background-color: var(--a3m-full-bg);
 	background-repeat: no-repeat;
-	background-size: contain ;
+	background-size: contain;
 	max-width: 100%;
+	overflow: hidden;
+}
+
+.a3m-player[data-mode="full"][data-list-open="0"] {
+	grid-template-rows: auto;
 }
 
 .a3m-player[data-mode="full"]::before {
@@ -1000,10 +1006,7 @@
 }
 
 .a3m-item-hint {
-	flex: 0 0 1em;
-	width: 1em;
-	opacity: 0;
-	transition: opacity var(--a3m-trans-fast);
+	display: none;
 }
 
 .a3m-item:focus-visible .a3m-item-hint,
@@ -1215,6 +1218,7 @@
 
 .a3m-player[data-mode="full"] .a3m-layout {
 	order: 1;
+	min-height: 0;
 }
 
 .a3m-player[data-mode="full"] .a3m-mini {
@@ -1227,15 +1231,118 @@
 }
 
 .a3m-player[data-mode="full"][data-list-open="1"] .a3m-layout {
-	display: block;
+	display: grid;
+	grid-template-columns: minmax(0, 1fr);
+	height: 100%;
+	min-height: 0;
+	align-items: stretch;
 }
 
 .a3m-player[data-mode="full"] .a3m-side {
-	max-height: 42vh;
+	display: flex;
+	flex-direction: column;
+	min-height: 0;
+	height: 100%;
+	max-height: none;
+	overflow: hidden;
+	flex: 1 1 auto;
+	padding: 6px 8px;
+}
+
+.a3m-player[data-mode="full"] .a3m-side-head {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto;
+	align-items: center;
+	gap: 4px;
+	min-width: 0;
+	margin-bottom: 4px;
+}
+
+.a3m-player[data-mode="full"] .a3m-list-tools {
+	display: grid;
+	grid-template-columns: repeat(5, minmax(0, 1fr));
+	gap: 2px;
+	min-width: 0;
+}
+
+.a3m-player[data-mode="full"] .a3m-list-tools .a3m-chip {
+	min-width: 0;
+	height: 24px;
+	padding: 0 4px;
+	font-size: 0.82em;
+	border-radius: 6px;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.a3m-player[data-mode="full"] .a3m-side-top {
+	min-width: 0;
+	justify-content: flex-end;
+	flex-wrap: nowrap;
+	white-space: nowrap;
+	font-size: 0.8em;
 }
 
 .a3m-player[data-mode="full"] .a3m-list-wrap {
-	max-height: min(30vh, 360px);
+	flex: 1 1 auto;
+	min-height: 0;
+	max-height: none;
+	height: 100%;
+}
+
+.a3m-player[data-mode="full"] .a3m-group {
+	margin-bottom: 4px;
+}
+
+.a3m-player[data-mode="full"] .a3m-group h3 {
+	margin: 0 0 2px;
+	font-size: 0.92em;
+}
+
+.a3m-player[data-mode="full"] .a3m-list {
+	gap: 2px;
+}
+
+.a3m-player[data-mode="full"] .a3m-list-foot {
+	flex: 0 0 auto;
+	padding-top: 4px;
+	font-size: 0.82em;
+}
+
+.a3m-player[data-mode="full"] .a3m-item {
+	align-items: flex-start;
+	flex-direction: column;
+	gap: 1px;
+	padding: 4px 8px;
+}
+
+.a3m-player[data-mode="full"] .a3m-item-main {
+	width: 100%;
+}
+
+.a3m-player[data-mode="full"] .a3m-item-title {
+	line-height: 1.18;
+}
+
+.a3m-player[data-mode="full"] .a3m-item-meta {
+	flex: 0 1 auto;
+	width: 100%;
+	max-width: none;
+	padding-left: 0;
+	font-size: 0.78em;
+	line-height: 1.18;
+	text-align: left;
+}
+
+.a3m-player[data-mode="full"] .a3m-toast {
+	top: calc(env(safe-area-inset-top, 0px) + 18px);
+	bottom: auto;
+	transform: translate(-50%, -12px);
+}
+
+.a3m-player[data-mode="full"] .a3m-toast.is-open {
+	transform: translate(-50%, 0);
 }
 
 .a3m-player[data-mode="full"][data-full-ui="0"] .a3m-mini,
@@ -1268,7 +1375,8 @@
 	}
 
 	.a3m-player[data-mode="full"] {
-		padding: var(--a3m-gap-m);
+		padding: calc(var(--a3m-gap-m) + env(safe-area-inset-top, 0px)) var(--a3m-gap-m)
+			calc(var(--a3m-gap-m) + env(safe-area-inset-bottom, 0px));
 	}
 
 	.a3m-trackblock {
@@ -1338,5 +1446,29 @@
 	.a3m-player[data-mode="full"] .a3m-layout {
 		width: calc(100vw - 24px);
 	}
-}
 
+	.a3m-player[data-mode="full"] .a3m-side-head {
+		grid-template-columns: minmax(0, 1fr) auto;
+		gap: 2px;
+	}
+
+	.a3m-player[data-mode="full"] .a3m-list-tools {
+		gap: 1px;
+	}
+
+	.a3m-player[data-mode="full"] .a3m-list-tools .a3m-chip {
+		height: 22px;
+		padding: 0 2px;
+		font-size: 0.76em;
+	}
+
+	.a3m-player[data-mode="full"] .a3m-side-top {
+		margin-top: 0;
+		font-size: 0.74em;
+	}
+
+	.a3m-player[data-mode="full"] .a3m-item-title,
+	.a3m-player[data-mode="full"] .a3m-item-meta {
+		white-space: nowrap;
+	}
+}
