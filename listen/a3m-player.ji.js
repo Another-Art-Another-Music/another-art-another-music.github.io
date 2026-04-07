@@ -68,6 +68,7 @@
 		}
 	};
 
+	const mobileDefault = detectMobileDefault();
 	const savedSession = loadPlayerSession();
 
 	const CFG = {
@@ -88,9 +89,11 @@
 		allowHashMissFallback: 1,
 		groupViews: [ 'newest', 'album', 'year', 'month', 'list' ],
 		listPosModes: [ 'right', 'left', 'bottom' ],
-		defaultMode: 'minimal',
+		defaultMode: mobileDefault ? 'full' : 'minimal',
+		defaultPrevMode: 'minimal',
 		defaultView: 'newest',
 		defaultListPos: 'bottom',
+		defaultPlaylistOpen: mobileDefault ? 1 : 0,
 		playFormatOrder: [ 'opus', 'm4a', 'ogg', 'mp3', 'flac', 'wav' ],
 		downloadOrder: [ 'opus', 'flac', 'm4a', 'ogg', 'mp3', 'wav', 'aac' ]
 	};
@@ -100,7 +103,7 @@
 			savedSession && savedSession.mode || CFG.defaultMode
 		),
 		prevMode: validMode(
-			savedSession && savedSession.prevMode || CFG.defaultMode
+			savedSession && savedSession.prevMode || CFG.defaultPrevMode
 		),
 		view: validView(
 			savedSession && savedSession.view || CFG.defaultView
@@ -110,7 +113,7 @@
 		),
 		playlistOpen: savedSession && savedSession.playlistOpen != null
 			? !!savedSession.playlistOpen
-			: false,
+			: !!CFG.defaultPlaylistOpen,
 		prevPlaylistOpen: null,
 		blocks: {},
 		tracks: [],
@@ -184,7 +187,8 @@
 			hash: location.hash || '',
 			session: !!savedSession,
 			mode: state.mode,
-			view: state.view
+			view: state.view,
+			mobileDefault: mobileDefault ? 1 : 0
 		});
 		renderShell();
 		audio = dom.audio;
@@ -381,7 +385,7 @@
 		dom.listEmpty = pick('[data-role="list-empty"]');
 		dom.count = pick('[data-role="count"]');
 		dom.footNote = pick('[data-role="foot-note"]');
-		dom.miniLineText = pick('[data-role="mini-line-text"]');
+		dom.miniLineText = pick('[data-role="mini-line-text"]') || pick('[data-role="mini-line-text"]');
 		dom.modeMini = pick('[data-role="mode-mini"]');
 		dom.modeMain = pick('[data-role="mode-main"]');
 		dom.posMain = pick('[data-role="pos-main"]');
@@ -1265,7 +1269,7 @@
 		const groups = groupedTracks(validView(state.view));
 		let count = 0;
 		for (let i = 0; i < groups.length; i++) count += groups[i].items.length;
-		dom.count.textContent = count + 't'; // tracks
+		dom.count.textContent = count + 't';
 		dom.listEmpty.classList.toggle('a3m-hidden', count > 0);
 		dom.listEmpty.textContent = count
 			? ''
@@ -2242,7 +2246,7 @@
 	function updateFootNote(){
 		const pages = Object.keys(state.blocks).length;
 		const total = state.totalKnownPages ? ('/' + state.totalKnownPages) : '';
-		dom.footNote.textContent = 'Lp: ' + pages + total; // Loaded Pages
+		dom.footNote.textContent = 'Lp: ' + pages + total;
 	}
 
 	function applyListRowsVisible(){
@@ -2490,6 +2494,19 @@
 	function parsePx(value, fallback){
 		const n = parseFloat(value);
 		return isFinite(n) ? n : fallback;
+	}
+
+	function detectMobileDefault(){
+		try {
+			if (
+				typeof window !== 'undefined' &&
+				typeof window.matchMedia === 'function'
+			) {
+				if (window.matchMedia('(max-width: 760px)').matches) return true;
+				if (window.matchMedia('(hover: none) and (pointer: coarse)').matches) return true;
+			}
+		} catch (e) {}
+		return false;
 	}
 
 	function validMode(v){
