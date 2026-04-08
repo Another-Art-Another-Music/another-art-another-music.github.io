@@ -52,7 +52,7 @@
 	--a3m-trans-fast: 120ms ease;
 	--a3m-trans-mid: 220ms ease;
 	--a3m-scroll-thumb: #ff6de3;
-	--a3m-full-bg: #102;
+	--a3m-full-bg: #06000a;
 }
 
 .a3m-root {
@@ -178,6 +178,14 @@
 	overflow: hidden;
 }
 
+.a3m-player[data-mode="full"][data-cover-fit="contain"] {
+	background-size: contain;
+}
+
+.a3m-player[data-mode="full"][data-cover-fit="cover"] {
+	background-size: cover;
+}
+
 .a3m-player[data-mode="full"][data-list-open="0"] {
 	grid-template-rows: auto;
 }
@@ -187,7 +195,9 @@
 	position: absolute;
 	inset: 0;
 	z-index: 0;
-	background: rgba(0, 0, 0, 0.58);
+	/*background: rgba(0, 0, 0, 0.58);
+	*/
+	background: transparent;
 	pointer-events: none;
 }
 

@@ -153,6 +153,7 @@
 		toastSticky: false,
 		toastTimer: 0,
 		downloadOpen: false,
+		fullCoverFit: 'contain',
 		fullUiVisible: true,
 		fullUiTimer: 0,
 		fullUiLocked: false,
@@ -383,7 +384,7 @@
 							'<div class="a3m-empty" data-role="list-empty">Loading…</div>',
 							'<div data-role="groups"></div>',
 						'</div>',
-						'<div class="a3m-list-foot" data-role="list-foot"/ren>',
+						'<div class="a3m-list-foot" data-role="list-foot">',
 							'<button class="a3m-loadmore" type="button" data-act="load-more">',
 								esc(UI.text.loadMore),
 							'</button>',
@@ -482,6 +483,23 @@
 		bindFullUiLockUi();
 		dom.player.addEventListener('mousemove', onFullUiActivity);
 		dom.player.addEventListener('touchstart', onFullUiActivity, { passive: true });
+		document.addEventListener('fullscreenchange', onFullscreenChange);
+		document.addEventListener('webkitfullscreenchange', onFullscreenChange);
+	}
+
+	function onFullscreenChange(){
+	if (state.mode === 'full' && !fullscreenElement()) {
+		exitFullMode();
+	}
+	}
+
+	function validCoverFit(v){
+	return /^(contain|cover)$/.test(v || '') ? v : 'contain';
+	}
+
+	function renderCoverFit(){
+	if (!dom.player) return;
+	dom.player.setAttribute('data-cover-fit', validCoverFit(state.fullCoverFit));
 	}
 
 	function bindGestureUi(){
@@ -810,18 +828,25 @@
 	}
 
 	function handleDoubleGesture(dx, dy){
-		const yMin = gestureThresholdPx('y');
-		const bias = CFG.gestureAxisRatio;
+	const xMin = gestureThresholdPx('x');
+	const yMin = gestureThresholdPx('y');
+	const bias = CFG.gestureAxisRatio;
 
-		if (Math.abs(dy) < yMin || Math.abs(dy) <= Math.abs(dx) * bias) return;
-
-		if (dy > 0) {
-			userPageReload();
-			return;
-		}
-
-		resetDefaultState();
+	if (Math.abs(dx) >= xMin && Math.abs(dx) > Math.abs(dy) * bias) {
+		toggleFullCoverFit();
+		return;
 	}
+
+	if (Math.abs(dy) < yMin || Math.abs(dy) <= Math.abs(dx) * bias) return;
+
+	if (dy > 0) {
+		userPageReload();
+		return;
+	}
+
+	resetDefaultState();
+	}
+
 
 	function openPlaylistFromGesture(){
 		showFullUi();
@@ -1007,48 +1032,49 @@
 		paintPlayButtons();
 	}
 
-	async function resolveStartup(){
-		const want = getHashKey();
-		const snap = state.session;
-		let target = want;
-		let opened = false;
-		let allowHashMissFallback = false;
+async function resolveStartup(){
+	const want = getHashKey();
+	const snap = state.session;
+	let target = want;
+	let opened = false;
+	let allowHashMissFallback = false;
 
-		log('startup', {
-			hash: want || '',
-			sessionHash: snap && snap.hash || '',
-			playlistOpen: state.playlistOpen
-		});
+	log('startup', {
+		hash: want || '',
+		sessionHash: snap && snap.hash || '',
+		playlistOpen: state.playlistOpen
+	});
 
-		setBusy(true);
+	setBusy(true);
 
-		if (!target && snap && snap.hash) {
-			target = cleanText(snap.hash);
-			if (target) history.replaceState(null, '', '#' + target);
-		}
+	if (!target && snap && snap.hash) {
+		target = cleanText(snap.hash);
+		if (target) history.replaceState(null, '', '#' + target);
+	}
 
-		allowHashMissFallback = !!target && CFG.allowHashMissFallback == 1;
+	allowHashMissFallback = !!target && CFG.allowHashMissFallback == 1;
 
-		if (target) {
-			state.currentHash = target;
-			state.sessionRestoreHash = snap && cleanText(snap.hash) === target
-				? target
-				: '';
-			opened = await openByHash(target);
-		}
+	if (target) {
+		state.currentHash = target;
+		state.sessionRestoreHash = snap && cleanText(snap.hash) === target
+			? target
+			: '';
+		opened = await openByHash(target);
+	}
 
-		if (!opened) {
-			const ok = await ensureBlock(1, false);
-			if (ok && !state.currentId) {
-				if (!target || allowHashMissFallback) {
-					if (!selectFirstLoaded(false, 'open')) showToast('No tracks found.', 'error', 3200);
-				}
+	if (!opened) {
+		const ok = await ensureBlock(1, false);
+		if (ok && !state.currentId) {
+			if (!target || allowHashMissFallback) {
+				if (!selectFirstLoaded(false, 'open')) showToast('No tracks found.', 'error', 3200);
 			}
 		}
-
-		setBusy(false);
-		renderAll();
 	}
+
+	setBusy(false);
+
+	if (!opened) renderAll();
+}
 
 	function rebuildFromCaches(){
 		const keys = getLocalKeys(CFG.cachePrefix + 'block:' + CFG.cacheVer + ':');
@@ -1444,7 +1470,8 @@
 			const a = assets[i];
 			const name = String(a.name || '');
 			const ext = extname(name);
-			if (!cover && /^(jpg|jpeg|png|webp)$/i.test(ext)) {
+			if (/^(webp|jpg|jpeg|png)$/i.test(ext)) {
+				// need improve webp 1st prio
 				cover = a.browser_download_url || '';
 				continue;
 			}
@@ -1608,11 +1635,32 @@
 		state.lastAction = action;
 	}
 
-	function waitingToastText(){
-		return state.lastAction
-			? ('Waiting: ' + state.lastAction)
-			: 'Waiting';
+
+function toggleFullCoverFit(){
+	state.fullCoverFit = state.fullCoverFit === 'cover' ? 'contain' : 'cover';
+	renderCoverFit();
+	saveSessionState();
+	showToast(
+		state.fullCoverFit === 'cover' ? 'Cover zoom: fill' : 'Cover zoom: fit',
+		'info',
+		1200
+	);
+}
+
+function waitingToastText(){
+	const t = currentTrack();
+	const title = t && t.title ? t.title : '';
+
+	if (state.lastAction) {
+		return title
+			? ('Waiting: ' + state.lastAction + ' · ' + title)
+			: ('Waiting: ' + state.lastAction);
 	}
+
+	return title
+		? ('Waiting: ' + title)
+		: 'Waiting';
+}
 
 	function currentTitleLabel(){
 		const cur = isFinite(audio && audio.currentTime) ? audio.currentTime : 0;
@@ -1649,6 +1697,7 @@
 
 	function renderCurrent(){
 		const t = currentTrack();
+		log("renderCurrent: " + (t ? t.title : "?") );
 		if (!t) {
 			dom.title.textContent = UI.text.title;
 			dom.subtitle.textContent = state.tracks.length ? '' : UI.text.noTracks;
@@ -1682,6 +1731,8 @@
 
 		dom.downloads.innerHTML = renderDownloads(t);
 		dom.downloads.classList.toggle('a3m-hidden', !state.downloadOpen);
+
+		log("cover: " + t.cover );
 
 		if (t.cover) {
 			const img = new Image();
@@ -2534,50 +2585,56 @@
 		audio.muted = !audio.muted;
 	}
 
-	function setMode(mode){
-		mode = validMode(mode);
-		if (mode === state.mode) return;
+function setMode(mode){
+	const prevMode = state.mode;
 
-		if (mode === 'full' && state.mode !== 'full') {
-			state.prevMode = state.mode;
-			state.prevPlaylistOpen = state.playlistOpen ? 1 : 0;
-			state.playlistOpen = false;
-		} else if (
-			state.mode === 'full' &&
-			mode !== 'full' &&
-			state.prevPlaylistOpen != null
-		) {
-			state.playlistOpen = !!state.prevPlaylistOpen;
-			state.prevPlaylistOpen = null;
-		}
+	mode = validMode(mode);
+	if (mode === prevMode) return;
 
-		state.mode = mode;
-
-		if (state.mode !== 'full') {
-			cancelFullUiLockHold();
-			state.fullUiLocked = false;
-		}
-
-		if (state.mode === 'full') {
-			showFullUi();
-		} else {
-			state.fullUiVisible = true;
-			if (state.fullUiTimer) clearTimeout(state.fullUiTimer);
-		}
-
-		renderAll();
-		saveSessionState();
-		dispatch('a3m:mode-change', { mode: state.mode });
-		showToast('Mode: ' + state.mode, 'info', 1000);
+	if (mode === 'full' && prevMode !== 'full') {
+		state.prevMode = prevMode;
+		state.prevPlaylistOpen = state.playlistOpen ? 1 : 0;
+		state.playlistOpen = false;
+	} else if (
+		prevMode === 'full' &&
+		mode !== 'full' &&
+		state.prevPlaylistOpen != null
+	) {
+		state.playlistOpen = !!state.prevPlaylistOpen;
+		state.prevPlaylistOpen = null;
 	}
 
-	function cycleMode(){
-		const list = [ 'minimal', 'medium', 'full' ];
-		let i = list.indexOf(validMode(state.mode));
-		if (i < 0) i = 0;
-		i = (i + 1) % list.length;
-		setMode(list[i]);
+	state.mode = mode;
+
+	if (prevMode === 'full' && mode !== 'full' && fullscreenElement()) {
+		setPlayerFullscreen(false);
 	}
+
+	if (state.mode !== 'full') {
+		cancelFullUiLockHold();
+		state.fullUiLocked = false;
+	}
+
+	if (state.mode === 'full') {
+		showFullUi();
+	} else {
+		state.fullUiVisible = true;
+		if (state.fullUiTimer) clearTimeout(state.fullUiTimer);
+	}
+
+	renderAll();
+	saveSessionState();
+	dispatch('a3m:mode-change', { mode: state.mode });
+	showToast('Mode: ' + state.mode, 'info', 1000);
+}
+
+function cycleMode(){
+	const list = allowedModes();
+	let i = list.indexOf(validMode(state.mode));
+	if (i < 0) i = 0;
+	i = (i + 1) % list.length;
+	setMode(list[i]);
+}
 
 	function exitFullMode(){
 		setMode(state.prevMode && state.prevMode !== 'full' ? state.prevMode : CFG.defaultMode);
@@ -3139,9 +3196,17 @@
 		return false;
 	}
 
-	function validMode(v){
-		return /^(minimal|medium|full)$/.test(v || '') ? v : CFG.defaultMode;
-	}
+function allowedModes(){
+	return mobileDefault
+		? [ 'minimal', 'full' ]
+		: [ 'minimal', 'medium', 'full' ];
+}
+
+function validMode(v){
+	const list = allowedModes();
+	v = cleanText(v).toLowerCase();
+	return list.indexOf(v) >= 0 ? v : CFG.defaultMode;
+}
 
 	function validView(v){
 		return CFG.groupViews.indexOf(v) >= 0 ? v : CFG.defaultView;
