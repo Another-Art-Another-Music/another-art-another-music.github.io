@@ -68,7 +68,14 @@
 		}
 	};
 
+	function sessionKeyFromScriptUrl(){
+		const src = document.currentScript && document.currentScript.getAttribute('src') || '.js';
+		return 'a3m-session:' + src;
+	}
+
 	const mobileDefault = detectMobileDefault();
+	log("type:" + ( mobileDefault ? "mobile" : "pc"));
+	const SESSION_KEY = sessionKeyFromScriptUrl();
 	const savedSession = loadPlayerSession();
 
 	const CFG = {
@@ -98,6 +105,9 @@
 		playFormatOrder: [ 'opus', 'm4a', 'ogg', 'mp3', 'flac', 'wav' ],
 		downloadOrder: [ 'opus', 'flac', 'm4a', 'ogg', 'mp3', 'wav', 'aac' ]
 	};
+
+	const ft = savedSession ? 0 : 1;
+	log("1st time: " + ft);
 
 	const state = {
 		mode: validMode(
@@ -222,7 +232,7 @@
 						esc(UI.icons.play),
 					'</button>',
 					'<button class="a3m-btn a3m-btn-small a3m-mini-btn a3m-mini-ctl-begin" type="button" ' +
-						'data-act="refresh" title="Begin">',
+						'data-act="refresh" title="Refresh">',
 						esc(UI.text.begin),
 					'</button>',
 					'<div class="a3m-mini-line-text a3m-mini-ctl-title" data-role="mini-line-text">',
@@ -2376,6 +2386,11 @@
 	}
 
 	function applyListRowsVisible(){
+		if (state.mode === 'full') {
+			dom.listWrap.style.maxHeight = 'none';
+			return;
+		}
+
 		const item = dom.root.querySelector('.a3m-item');
 		if (!item) return;
 		const h = Math.max(28, Math.ceil(item.getBoundingClientRect().height));
@@ -2926,7 +2941,7 @@
 	function esc(s){
 		return String(s == null ? '' : s)
 			.replace(/&/g, '&amp;')
-			.replace(/</g, '&lt;')
+			replace(/</g, '&lt;')
 			.replace(/>/g, '&gt;')
 			.replace(/"/g, '&quot;');
 	}
@@ -2956,7 +2971,7 @@
 
 	function loadPlayerSession(){
 		let v = '';
-		try { v = sessionStorage.getItem('a3m-session'); } catch (e) {}
+		try { v = sessionStorage.getItem(SESSION_KEY); } catch (e) {}
 		if (!v) return null;
 		try {
 			return JSON.parse(v);
@@ -2966,7 +2981,7 @@
 	}
 
 	function storePlayerSession(v){
-		try { sessionStorage.setItem('a3m-session', JSON.stringify(v)); } catch (e) {}
+		try { sessionStorage.setItem(SESSION_KEY, JSON.stringify(v)); } catch (e) {}
 	}
 
 	function getLocalKeys(prefix){
