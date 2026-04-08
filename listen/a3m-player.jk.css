@@ -128,7 +128,8 @@
 .a3m-chip,
 .a3m-loadmore,
 .a3m-cover-btn,
-.a3m-volctl-mute {
+.a3m-volctl-mute,
+.a3m-first-gesture {
 	appearance: none;
 	-webkit-appearance: none;
 	-moz-appearance: none;
@@ -140,7 +141,8 @@
 .a3m-chip::-moz-focus-inner,
 .a3m-loadmore::-moz-focus-inner,
 .a3m-cover-btn::-moz-focus-inner,
-.a3m-volctl-mute::-moz-focus-inner {
+.a3m-volctl-mute::-moz-focus-inner,
+.a3m-first-gesture::-moz-focus-inner {
 	border: 0;
 	padding: 0;
 }
@@ -184,6 +186,7 @@
 	content: "";
 	position: absolute;
 	inset: 0;
+	z-index: 0;
 	background: rgba(0, 0, 0, 0.58);
 	pointer-events: none;
 }
@@ -196,6 +199,67 @@
 	pointer-events: none;
 	left: -9999px;
 	top: -9999px;
+}
+
+.a3m-gesture-layer {
+	display: none;
+	position: absolute;
+	inset: 0;
+	z-index: 0;
+	touch-action: none;
+}
+
+.a3m-player[data-mode="full"] .a3m-gesture-layer {
+	display: block;
+}
+
+.a3m-first-gesture {
+	position: absolute;
+	left: 50%;
+	top: 50%;
+	z-index: 2;
+	display: grid;
+	place-items: center;
+	padding: 0;
+	margin: 0;
+	border: 0;
+	background: transparent;
+	transform: translate(-50%, -50%);
+	cursor: pointer;
+}
+
+.a3m-first-gesture-bar {
+	display: grid;
+	place-items: center;
+	min-width: min(74vw, 420px);
+	min-height: min(30vw, 160px);
+	padding: 0;
+	margin: 0;
+	background: rgba(0, 0, 0, 0.14);
+	width: 100%;
+	transition: background var(--a3m-trans-fast), border-color var(--a3m-trans-fast), transform var(--a3m-trans-fast);
+}
+
+.a3m-first-gesture-icon {
+	display: block;
+	font-size: min(25vw, 25vh);
+	line-height: 1;
+	color: #fff;
+	text-shadow: 0 6px 18px rgba(0, 0, 0, 0.34);
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.a3m-first-gesture:hover .a3m-first-gesture-bar {
+		background: rgba(0, 0, 0, 0.22);
+		border-color: rgba(255, 255, 255, 0.14);
+		transform: translateY(-1px);
+	}
+}
+
+.a3m-first-gesture[data-press="1"] .a3m-first-gesture-bar {
+	background: rgba(0, 0, 0, 0.22);
+	border-color: rgba(255, 255, 255, 0.14);
+	transform: translateY(-1px);
 }
 
 .a3m-layout {
@@ -1470,6 +1534,11 @@
 	.a3m-player[data-mode="full"] .a3m-item-title,
 	.a3m-player[data-mode="full"] .a3m-item-meta {
 		white-space: nowrap;
+	}
+
+	.a3m-first-gesture-bar {
+		min-width: min(84vw, 420px);
+		min-height: min(34vw, 180px);
 	}
 }
 

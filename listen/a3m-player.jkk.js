@@ -74,7 +74,8 @@
 	}
 
 	const mobileDefault = detectMobileDefault();
-	log("type:" + ( mobileDefault ? "mobile" : "pc"));
+	const variant = mobileDefault ? "mobile" : "pc"
+	//log("variant: " + variant );
 	const SESSION_KEY = sessionKeyFromScriptUrl();
 	const savedSession = loadPlayerSession();
 
@@ -95,19 +96,19 @@
 		failedHashMs: 60 * 1000,
 		githubMinRequestMs: 5000,
 		allowHashMissFallback: 1,
+		titleTimeStepSec: 15,
+		gestureMinPx: 54,
+		gestureAxisRatio: 1.12,
 		groupViews: [ 'newest', 'album', 'year', 'month', 'list' ],
 		listPosModes: [ 'right', 'left', 'bottom' ],
 		defaultMode: mobileDefault ? 'full' : 'minimal',
 		defaultPrevMode: 'minimal',
 		defaultView: 'newest',
 		defaultListPos: 'bottom',
-		defaultPlaylistOpen: mobileDefault ? 1 : 0,
+		defaultPlaylistOpen: false,
 		playFormatOrder: [ 'opus', 'm4a', 'ogg', 'mp3', 'flac', 'wav' ],
 		downloadOrder: [ 'opus', 'flac', 'm4a', 'ogg', 'mp3', 'wav', 'aac' ]
 	};
-
-	const ft = savedSession ? 0 : 1;
-	log("1st time: " + ft);
 
 	const state = {
 		mode: validMode(
@@ -142,6 +143,7 @@
 		inflight: {},
 		requestSeq: 0,
 		session: savedSession,
+		sessionSaveDisabled: false,
 		sessionRestoreHash: '',
 		pendingSession: null,
 		refreshInflight: 0,
@@ -157,6 +159,7 @@
 		fullUiLockTimer: 0,
 		fullUiLockPointerId: null,
 		lastMuted: null,
+		lastAction: 'open',
 		failedHash: '',
 		failedHashAt: 0,
 		miniVolTimer: 0,
@@ -165,7 +168,17 @@
 		miniVolActionPointerId: null,
 		miniVolSuppressClickAt: 0,
 		pressNodes: [],
-		volFocusTimer: 0
+		volFocusTimer: 0,
+		firstGestureVisible: !savedSession,
+		firstGesturePendingPlay: false,
+		titleState: 'open',
+		titlePlayTick: -1,
+		gestureActive: false,
+		gestureMode: '',
+		gestureStartX: 0,
+		gestureStartY: 0,
+		gestureLastX: 0,
+		gestureLastY: 0
 	};
 
 	async function fetchGitApi(url, opts){
@@ -202,7 +215,7 @@
 			session: !!savedSession,
 			mode: state.mode,
 			view: state.view,
-			mobileDefault: mobileDefault ? 1 : 0
+			variant: variant
 		});
 		renderShell();
 		audio = dom.audio;
@@ -211,6 +224,8 @@
 		restoreAudioPrefs();
 		rebuildFromCaches();
 		syncDocumentMode();
+		renderFirstGesture();
+		paintDocumentTitle();
 		resolveStartup().catch(function(e){
 			fail(e);
 		});
@@ -226,6 +241,12 @@
 				'" data-list-pos="' + escAttr(effectiveListPos()) +
 				'" data-full-ui="1" data-vol-axis="horizontal" data-vol-expand-mode="overlay">',
 				'<audio class="a3m-audio" preload="none"></audio>',
+				'<div class="a3m-gesture-layer" data-role="gesture-layer" aria-hidden="true"></div>',
+				'<button class="a3m-first-gesture a3m-hidden" type="button" data-act="first-gesture" aria-label="Play">',
+					'<span class="a3m-first-gesture-bar"><span class="a3m-first-gesture-icon">',
+						esc(UI.icons.play),
+					'</span></span>',
+				'</button>',
 				'<div class="a3m-mini">',
 					'<button class="a3m-btn a3m-btn-sym a3m-mini-btn a3m-mini-ctl-play" type="button" ' +
 						'data-act="toggle" title="Play / Pause">',
@@ -362,7 +383,7 @@
 							'<div class="a3m-empty" data-role="list-empty">Loading…</div>',
 							'<div data-role="groups"></div>',
 						'</div>',
-						'<div class="a3m-list-foot">',
+						'<div class="a3m-list-foot" data-role="list-foot"/ren>',
 							'<button class="a3m-loadmore" type="button" data-act="load-more">',
 								esc(UI.text.loadMore),
 							'</button>',
@@ -375,8 +396,11 @@
 		].join('');
 
 		dom.root = root;
+		dom.listFoot = pick('[data-role="list-foot"]');
 		dom.player = root.querySelector('.a3m-player');
 		dom.audio = root.querySelector('.a3m-audio');
+		dom.gestureLayer = pick('[data-role="gesture-layer"]');
+		dom.firstGesture = root.querySelector('.a3m-first-gesture');
 		dom.mini = root.querySelector('.a3m-mini');
 		dom.toast = pick('[data-role="toast"]');
 		dom.title = pick('[data-role="title"]');
@@ -399,7 +423,7 @@
 		dom.listEmpty = pick('[data-role="list-empty"]');
 		dom.count = pick('[data-role="count"]');
 		dom.footNote = pick('[data-role="foot-note"]');
-		dom.miniLineText = pick('[data-role="mini-line-text"]') || pick('[data-role="mini-line-text"]');
+		dom.miniLineText = pick('[data-role="mini-line-text"]');
 		dom.modeMini = pick('[data-role="mode-mini"]');
 		dom.modeMain = pick('[data-role="mode-main"]');
 		dom.posMain = pick('[data-role="pos-main"]');
@@ -451,11 +475,21 @@
 		window.addEventListener('hashchange', onHashChange);
 		window.addEventListener('pagehide', onPageHide);
 		window.addEventListener('resize', syncVolumeCssConfig);
+		dom.player.addEventListener('dblclick', onPlayerDblClick);
+		bindGestureUi();
 		bindPressUi();
 		bindMiniVolUi();
 		bindFullUiLockUi();
 		dom.player.addEventListener('mousemove', onFullUiActivity);
 		dom.player.addEventListener('touchstart', onFullUiActivity, { passive: true });
+	}
+
+	function bindGestureUi(){
+		if (!dom.gestureLayer) return;
+		dom.gestureLayer.addEventListener('touchstart', onGestureTouchStart, { passive: false });
+		dom.gestureLayer.addEventListener('touchmove', onGestureTouchMove, { passive: false });
+		dom.gestureLayer.addEventListener('touchend', onGestureTouchEnd, { passive: false });
+		dom.gestureLayer.addEventListener('touchcancel', onGestureTouchCancel, { passive: false });
 	}
 
 	function bindPressUi(){
@@ -502,6 +536,61 @@
 		document.addEventListener('touchstart', onFullUiLockTouchStart, { capture: true, passive: true });
 		document.addEventListener('touchend', onFullUiLockTouchEnd, { capture: true, passive: true });
 		document.addEventListener('touchcancel', onFullUiLockTouchCancel, { capture: true, passive: true });
+	}
+
+	function onPlayerDblClick(e){
+		const node = pressTargetElement(e.target);
+		if (!node || !dom.player || !dom.player.contains(node)) return;
+		if (node.closest('button, input, a, label, [data-act]')) return;
+		togglePlayerFullscreen();
+	}
+
+	function fullscreenElement(){
+		return document.fullscreenElement || document.webkitFullscreenElement || null;
+	}
+
+	function setPlayerFullscreen(on){
+		const node = dom.player || dom.root || document.documentElement;
+		let fn = null;
+		let out = null;
+
+		log("fullScreen: " + on);
+
+		if (on) {
+			if (state.mode !== 'full') setMode('full');
+			if (fullscreenElement()) return;
+
+			fn = node && (
+				node.requestFullscreen ||
+				node.webkitRequestFullscreen ||
+				node.msRequestFullscreen
+			);
+			if (!fn) return;
+
+			try {
+				out = fn.call(node);
+				if (out && typeof out.catch === 'function') out.catch(function(){});
+			} catch (e) {}
+			return;
+		}
+
+		if (!fullscreenElement()) return;
+
+		fn = document.exitFullscreen || document.webkitExitFullscreen;
+		if (!fn) return;
+
+		try {
+			out = fn.call(document);
+			if (out && typeof out.catch === 'function') out.catch(function(){});
+		} catch (e) {}
+	}
+
+	function togglePlayerFullscreen(){
+		setPlayerFullscreen(!fullscreenElement());
+	}
+
+	function enterFullModeNow(){
+		setPlayerFullscreen(true);
 	}
 
 	function fullUiLockSurfaceFromTarget(target){
@@ -576,6 +665,201 @@
 
 	function onFullUiLockTouchCancel(){
 		cancelFullUiLockHold();
+	}
+
+	function gestureLayerActive(){
+		return !!(
+			dom.gestureLayer &&
+			mobileDefault &&
+			state.mode === 'full' &&
+			!state.firstGestureVisible
+		);
+	}
+
+	function resetGestureSwipe(){
+		state.gestureActive = false;
+		state.gestureMode = '';
+		state.gestureStartX = 0;
+		state.gestureStartY = 0;
+		state.gestureLastX = 0;
+		state.gestureLastY = 0;
+	}
+
+	function gesturePoint(touches, count){
+		let x = 0;
+		let y = 0;
+		let n = 0;
+		let i = 0;
+
+		n = Math.min(
+			touches && touches.length || 0,
+			count || (touches ? touches.length : 0)
+		);
+
+		if (!n) return null;
+
+		for (i = 0; i < n; i++) {
+			x += touches[i].clientX;
+			y += touches[i].clientY;
+		}
+
+		return {
+			x: x / n,
+			y: y / n
+		};
+	}
+
+	function gestureThresholdPx(axis){
+		const span = axis === 'x'
+			? (window.innerWidth || 0)
+			: (window.innerHeight || 0);
+
+		return Math.max(CFG.gestureMinPx, Math.round(span * 0.08));
+	}
+
+	function onGestureTouchStart(e){
+		const count = e.touches ? e.touches.length : 0;
+		const pt = gesturePoint(e.touches, count);
+
+		if (!gestureLayerActive()) return;
+		if (count !== 1 && count !== 2) {
+			resetGestureSwipe();
+			return;
+		}
+		if (!pt) return;
+
+		state.gestureActive = true;
+		state.gestureMode = count === 2 ? 'double' : 'single';
+		state.gestureStartX = pt.x;
+		state.gestureStartY = pt.y;
+		state.gestureLastX = pt.x;
+		state.gestureLastY = pt.y;
+
+		showFullUi();
+		e.preventDefault();
+	}
+
+	function onGestureTouchMove(e){
+		const count = state.gestureMode === 'double' ? 2 : 1;
+		const pt = gesturePoint(e.touches, count);
+
+		if (!state.gestureActive || !gestureLayerActive()) return;
+		if (!pt || (e.touches && e.touches.length !== count)) {
+			resetGestureSwipe();
+			return;
+		}
+
+		state.gestureLastX = pt.x;
+		state.gestureLastY = pt.y;
+
+		if (
+			Math.abs(state.gestureLastX - state.gestureStartX) > 8 ||
+			Math.abs(state.gestureLastY - state.gestureStartY) > 8
+		) {
+			e.preventDefault();
+		}
+	}
+
+	function onGestureTouchEnd(e){
+		const dx = state.gestureLastX - state.gestureStartX;
+		const dy = state.gestureLastY - state.gestureStartY;
+		const mode = state.gestureMode;
+
+		if (!state.gestureActive) return;
+		resetGestureSwipe();
+		e.preventDefault();
+
+		if (mode === 'double') {
+			handleDoubleGesture(dx, dy);
+			return;
+		}
+
+		handleSingleGesture(dx, dy);
+	}
+
+	function onGestureTouchCancel(){
+		resetGestureSwipe();
+	}
+
+	function handleSingleGesture(dx, dy){
+		const xMin = gestureThresholdPx('x');
+		const yMin = gestureThresholdPx('y');
+		const bias = CFG.gestureAxisRatio;
+
+		if (Math.abs(dy) >= yMin && Math.abs(dy) > Math.abs(dx) * bias) {
+			if (dy < 0) {
+				openPlaylistFromGesture();
+				return;
+			}
+			refreshFromGesture();
+			return;
+		}
+
+		if (Math.abs(dx) >= xMin && Math.abs(dx) > Math.abs(dy) * bias) {
+			if (dx < 0) {
+				nextTrack(1);
+				return;
+			}
+			nextTrack(-1);
+		}
+	}
+
+	function userPageReload(r){
+		log("user Page reload: " + (r ? r : ""));
+		location.reload();
+	}
+
+	function handleDoubleGesture(dx, dy){
+		const yMin = gestureThresholdPx('y');
+		const bias = CFG.gestureAxisRatio;
+
+		if (Math.abs(dy) < yMin || Math.abs(dy) <= Math.abs(dx) * bias) return;
+
+		if (dy > 0) {
+			userPageReload();
+			return;
+		}
+
+		resetDefaultState();
+	}
+
+	function openPlaylistFromGesture(){
+		showFullUi();
+		if (state.firstGestureVisible || state.playlistOpen) return;
+		state.playlistOpen = true;
+		syncPlaylistUi();
+		saveSessionState();
+		showToast('Playlist shown.', 'info', 1200);
+	}
+
+	function refreshFromGesture(){
+		showFullUi();
+		refreshCurrentScope();
+	}
+
+	function clearPlayerSession(){
+		state.session = null;
+		log("cleanPlayerSession: " + SESSION_KEY);
+		state.session = null;
+		try { sessionStorage.removeItem(SESSION_KEY); } catch (e) {}
+	}
+
+	function clearPageHash(){
+		log("clearPageHash");
+		if (!location.hash) return;
+		try {
+			history.replaceState(null, '', location.pathname + location.search);
+		} catch (e) {
+			location.hash = '';
+		}
+	}
+
+	function resetDefaultState(){
+		log('reset default state -> first visit');
+		state.sessionSaveDisabled = true;
+		clearPlayerSession();
+		clearPageHash();
+		userPageReload('reset to default');
 	}
 
 	function pressTargetElement(target){
@@ -702,8 +986,8 @@
 		audio.addEventListener('ended', onEnded);
 		audio.addEventListener('volumechange', onVolumeState);
 		audio.addEventListener('waiting', function(){
-			showToast('Waiting…', 'info', 1600);
-			dispatch('a3m:waiting');
+			showToast(waitingToastText(), 'info', 1600);
+			dispatch('a3m:waiting', { action: state.lastAction || '' });
 		});
 		audio.addEventListener('canplay', function(){
 			dispatch('a3m:track-ready');
@@ -757,7 +1041,7 @@
 			const ok = await ensureBlock(1, false);
 			if (ok && !state.currentId) {
 				if (!target || allowHashMissFallback) {
-					if (!selectFirstLoaded()) showToast('No tracks found.', 'error', 3200);
+					if (!selectFirstLoaded(false, 'open')) showToast('No tracks found.', 'error', 3200);
 				}
 			}
 		}
@@ -795,7 +1079,7 @@
 		const hit = findTrackByHash(key);
 		if (hit) {
 			clearFailedHash();
-			openTrack(hit.id, false);
+			openTrack(hit.id, false, 'open');
 			return true;
 		}
 
@@ -806,7 +1090,7 @@
 				const found = findTrackByHash(key);
 				if (found) {
 					clearFailedHash();
-					openTrack(found.id, false);
+					openTrack(found.id, false, 'open');
 					return true;
 				}
 				page++;
@@ -817,7 +1101,7 @@
 			const found = findTrackByHash(key);
 			if (found) {
 				clearFailedHash();
-				openTrack(found.id, false);
+				openTrack(found.id, false, 'open');
 				return true;
 			}
 			if (state.totalKnownPages && page >= state.totalKnownPages) break;
@@ -1217,6 +1501,7 @@
 		renderPosButton();
 		renderViews();
 		renderPlaylistState();
+		renderFirstGesture();
 		renderCurrent();
 		renderList();
 		paintProgress();
@@ -1226,6 +1511,7 @@
 		syncVolumeCssConfig();
 		syncDocumentMode();
 		syncVolFocusStateSoon();
+		flushFirstGesturePendingPlay();
 	}
 
 	function renderStatus(){
@@ -1276,6 +1562,24 @@
 		dom.player.setAttribute('data-full-ui', state.fullUiVisible ? '1' : '0');
 	}
 
+	function syncPlaylistUi(){
+		renderPlaylistState();
+		renderListButtons();
+	}
+
+	function renderFirstGesture(){
+		const on = !!(
+			dom.firstGesture &&
+			state.firstGestureVisible
+		);
+
+		if (!dom.firstGesture) return;
+		dom.player.setAttribute('data-first-gesture', on ? '1' : '0');
+		dom.firstGesture.classList.toggle('a3m-hidden', !on);
+		dom.firstGesture.title = on ? 'Play' : '';
+		dom.firstGesture.setAttribute('aria-label', 'Play');
+	}
+
 	function effectiveListPos(){
 		return state.mode === 'full' ? 'top' : state.listPos;
 	}
@@ -1289,6 +1593,58 @@
 
 	function currentTrack(){
 		return state.currentId ? state.trackByKey[state.currentId] || null : null;
+	}
+
+	function setTitleState(label){
+		label = cleanText(label || 'open').toLowerCase() || 'open';
+		state.titleState = label;
+		if (label !== 'play') state.titlePlayTick = -1;
+		paintDocumentTitle();
+	}
+
+	function setLastAction(action){
+		action = cleanText(action || '').toLowerCase();
+		if (!action) return;
+		state.lastAction = action;
+	}
+
+	function waitingToastText(){
+		return state.lastAction
+			? ('Waiting: ' + state.lastAction)
+			: 'Waiting';
+	}
+
+	function currentTitleLabel(){
+		const cur = isFinite(audio && audio.currentTime) ? audio.currentTime : 0;
+
+		if (audio && !audio.paused) return 'play+' + fmtTime(cur);
+		return state.titleState || 'open';
+	}
+
+	function paintDocumentTitle(){
+		const t = currentTrack();
+
+		if (!t) {
+			document.title = 'A3M Listen';
+			return;
+		}
+
+		document.title = t.title + ' - ' + currentTitleLabel();
+	}
+
+	function syncTitlePlayTick(force){
+		const cur = isFinite(audio && audio.currentTime) ? audio.currentTime : 0;
+		const tick = Math.floor(cur / CFG.titleTimeStepSec);
+
+		if (!audio || audio.paused) {
+			if (force) paintDocumentTitle();
+			return;
+		}
+
+		if (force || tick !== state.titlePlayTick) {
+			state.titlePlayTick = tick;
+			paintDocumentTitle();
+		}
 	}
 
 	function renderCurrent(){
@@ -1307,11 +1663,10 @@
 			dom.timeTotal.textContent = '00:00';
 			dom.miniTime.textContent = '0:00 / 0:00';
 			dom.player.style.backgroundImage = '';
-			document.title = 'A3M Listen';
+			paintDocumentTitle();
 			return;
 		}
 
-		document.title = t.title + ' - A3M Listen';
 		dom.title.textContent = t.title;
 		dom.subtitle.textContent = [ t.artist, t.album, t.date ].filter(Boolean).join(' · ');
 		dom.miniLineText.textContent = [ t.title, t.album, t.date ].filter(Boolean).join(' / ');
@@ -1348,6 +1703,8 @@
 		} else {
 			dom.player.style.backgroundImage = '';
 		}
+
+		paintDocumentTitle();
 	}
 
 	function renderDownloads(t){
@@ -1453,11 +1810,111 @@
 			esc(v || '') + '</span></div>';
 	}
 
-	function openTrack(id, autoplay){
+	function gestureBlockedError(e){
+		const name = cleanText(e && e.name);
+		const msg = cleanText(e && (e.message || '')).toLowerCase();
+
+		if (name === 'NotAllowedError' || name === 'SecurityError') return true;
+		if (/autoplay|gesture|user interaction|user gesture|not allowed/.test(msg)) return true;
+		return false;
+	}
+
+	function showFirstGesture(pendingPlay){
+		resetGestureSwipe();
+		state.firstGestureVisible = true;
+		state.firstGesturePendingPlay = !!pendingPlay;
+		state.fullUiVisible = true;
+		if (state.playlistOpen) state.playlistOpen = false;
+		syncPlaylistUi();
+		renderFirstGesture();
+	}
+
+	function hideFirstGesture(){
+		state.firstGestureVisible = false;
+		state.firstGesturePendingPlay = false;
+		renderFirstGesture();
+	}
+
+	function handlePlayRequestFailure(e){
+		if (gestureBlockedError(e)) {
+			showFirstGesture(true);
+			return false;
+		}
+		showToast('Press play.', 'info', 1200);
+		return false;
+	}
+
+	function playAudioRequest(action, onSuccess){
+		let req = null;
+
+		setLastAction(action || 'play');
+
+		try {
+			req = audio.play();
+		} catch (e) {
+			return handlePlayRequestFailure(e);
+		}
+
+		if (!req || typeof req.then !== 'function') {
+			hideFirstGesture();
+			if (onSuccess) onSuccess();
+			return Promise.resolve(true);
+		}
+
+		return req.then(function(){
+			hideFirstGesture();
+			if (onSuccess) onSuccess();
+			return true;
+		}).catch(function(e){
+			return handlePlayRequestFailure(e);
+		});
+	}
+
+	function useFirstGesture(playNow){
+		if (!state.firstGestureVisible) return;
+
+		state.firstGestureVisible = false;
+		if (!playNow) state.firstGesturePendingPlay = false;
+		renderFirstGesture();
+		enterFullModeNow();
+
+		if (!playNow) return;
+
+		state.firstGesturePendingPlay = true;
+		flushFirstGesturePendingPlay();
+	}
+
+	function flushFirstGesturePendingPlay(){
+		const t = currentTrack();
+
+		if (!state.firstGesturePendingPlay || state.firstGestureVisible) return;
+		if (!t && !state.tracks.length) return;
+
+		state.firstGesturePendingPlay = false;
+
+		if (t) {
+			if (
+				t.primaryUrl &&
+				(audio.src === t.primaryUrl || audio.currentSrc === t.primaryUrl)
+			) {
+				playAudioRequest('play');
+				return;
+			}
+			openTrack(t.id, true, 'open');
+			return;
+		}
+
+		selectFirstLoaded(true, 'open');
+	}
+
+	function openTrack(id, autoplay, titleLabel){
 		const t = state.trackByKey[id];
+		const label = titleLabel || 'open';
+
 		if (!t) return;
 		log('open track', t.tag, autoplay === false ? 'prepare' : 'play');
 		clearFailedHash();
+		setLastAction(label);
 		state.pendingSession =
 			state.sessionRestoreHash &&
 			state.session &&
@@ -1470,6 +1927,7 @@
 		state.currentHash = t.tag;
 		state.error = '';
 		state.downloadOpen = false;
+		setTitleState(label);
 		renderStatus();
 		renderCurrent();
 		renderList();
@@ -1480,10 +1938,8 @@
 				dispatch('a3m:track-load', { track: t });
 			}
 			if (autoplay !== false) {
-				audio.play().then(function(){
+				playAudioRequest(label, function(){
 					dispatch('a3m:play', { track: t });
-				}).catch(function(){
-					showToast('Press play.', 'info', 1200);
 				});
 			} else if (state.pendingSession && state.pendingSession.playing) {
 				showToast('Restoring session…', 'info', 1600);
@@ -1495,17 +1951,19 @@
 		saveSessionState();
 	}
 
-	function selectFirstLoaded(){
+	function selectFirstLoaded(autoplay, titleLabel){
 		if (!state.tracks.length) return false;
-		openTrack(state.tracks[0].id, false);
+		openTrack(state.tracks[0].id, autoplay, titleLabel);
 		return true;
 	}
 
 	function nextTrack(dir){
 		const list = state.tracks.slice();
+		const label = dir < 0 ? 'prev' : 'next';
+
 		if (!list.length) return;
 		if (!state.currentId) {
-			openTrack(list[0].id, true);
+			openTrack(list[0].id, true, label);
 			return;
 		}
 		let idx = list.findIndex(function(t){ return t.id === state.currentId; });
@@ -1513,10 +1971,11 @@
 		idx += dir;
 		if (idx < 0) idx = list.length - 1;
 		if (idx >= list.length) idx = 0;
-		openTrack(list[idx].id, true);
+		openTrack(list[idx].id, true, label);
 	}
 
 	function stopTrack(){
+		setTitleState('pause');
 		audio.pause();
 		try { audio.currentTime = 0; } catch (e) {}
 		saveSessionState();
@@ -1528,19 +1987,30 @@
 	function toggleTrack(){
 		const t = currentTrack();
 		if (!t) {
-			if (selectFirstLoaded()) audio.play().catch(function(){});
+			selectFirstLoaded(true, 'play');
 			return;
 		}
-		if (audio.paused) audio.play().catch(function(){});
+		if (audio.paused) playAudioRequest('play');
 		else audio.pause();
 	}
 
 	function onClick(e){
 		const el = e.target.closest('[data-act]');
-		if (!el) return;
-		const act = el.getAttribute('data-act');
+		let act = '';
 
-		if (act === 'track') return void openTrack(el.getAttribute('data-id'), true);
+		if (!el) return;
+		act = el.getAttribute('data-act');
+
+		if (act === 'first-gesture') return void useFirstGesture(true);
+
+		if (
+			state.firstGestureVisible &&
+			/^(toggle|track|prev|next)$/.test(act)
+		) {
+			useFirstGesture(false);
+		}
+
+		if (act === 'track') return void openTrack(el.getAttribute('data-id'), true, 'open');
 		if (act === 'mode-next') return void cycleMode();
 		if (act === 'view') return void setView(el.getAttribute('data-view'));
 		if (act === 'toggle') return void toggleTrack();
@@ -1598,6 +2068,7 @@
 		state.seeking = false;
 		saveSessionState();
 		paintProgress();
+		syncTitlePlayTick(true);
 	}
 
 	function onVolumeInput(e){
@@ -1666,7 +2137,7 @@
 		}
 		if (k === 'Enter') {
 			e.preventDefault();
-			if (state.currentId) openTrack(state.currentId, true);
+			if (state.currentId) openTrack(state.currentId, true, 'open');
 			return;
 		}
 	}
@@ -1676,6 +2147,7 @@
 			clearPressState();
 			closeMiniVol();
 			cancelFullUiLockHold();
+			resetGestureSwipe();
 			saveSessionState();
 			syncVolFocusStateSoon();
 		}
@@ -1685,6 +2157,7 @@
 		clearPressState();
 		closeMiniVol();
 		cancelFullUiLockHold();
+		resetGestureSwipe();
 		saveSessionState();
 		syncVolFocusStateSoon();
 	}
@@ -1713,6 +2186,7 @@
 		if (now - state.lastTimePaint < CFG.maxSeekUpdateMs && !state.seeking) return;
 		state.lastTimePaint = now;
 		paintProgress();
+		syncTitlePlayTick(false);
 		if (!audio.paused && now - state.lastSessionSave >= CFG.sessionSaveMs) {
 			saveSessionState();
 		}
@@ -1731,6 +2205,16 @@
 		paintPlayButtons();
 		saveSessionState();
 		renderStatus();
+
+		if (audio.paused) {
+			setTitleState('pause');
+		} else {
+			hideFirstGesture();
+			state.titleState = 'play';
+			state.titlePlayTick = -1;
+			syncTitlePlayTick(true);
+		}
+
 		dispatch(audio.paused ? 'a3m:pause' : 'a3m:play');
 	}
 
@@ -2122,9 +2606,15 @@
 	}
 
 	function togglePlaylist(){
+		if (state.firstGestureVisible) {
+			state.playlistOpen = false;
+			syncPlaylistUi();
+			showToast('Press play.', 'info', 1200);
+			return;
+		}
 		state.playlistOpen = !state.playlistOpen;
 		if (state.mode === 'full') showFullUi();
-		renderPlaylistState();
+		syncPlaylistUi();
 		saveSessionState();
 		showToast(
 			state.playlistOpen ? 'Playlist shown.' : 'Playlist hidden.',
@@ -2165,10 +2655,6 @@
 		return n;
 	}
 
-	function failedHashSecs(){
-		return Math.round(CFG.failedHashMs / 1000);
-	}
-
 	function failedHashWaitSecs(){
 		if (!state.failedHashAt) return 0;
 		return Math.max(0, Math.ceil((state.failedHashAt + CFG.failedHashMs - Date.now()) / 1000));
@@ -2200,7 +2686,7 @@
 			if (want) {
 				const hit = findTrackByHash(want);
 				if (hit) {
-					openTrack(hit.id, false);
+					openTrack(hit.id, false, 'open');
 					return;
 				}
 				await openByHash(want);
@@ -2208,7 +2694,7 @@
 			}
 
 			if (!state.currentId && state.tracks.length) {
-				openTrack(state.tracks[0].id, false);
+				openTrack(state.tracks[0].id, false, 'open');
 				return;
 			}
 
@@ -2321,20 +2807,20 @@
 		saveSessionState();
 		renderList();
 		showToast('Shuffle.', 'info', 1000);
-		openTrack(state.tracks[0].id, true);
+		openTrack(state.tracks[0].id, true, 'open');
 	}
 
 	function moveSelection(dir){
 		const list = state.tracks.slice();
 		if (!list.length) return;
 		if (!state.currentId) {
-			openTrack(list[0].id, false);
+			openTrack(list[0].id, false, 'open');
 			return;
 		}
 		let idx = list.findIndex(function(t){ return t.id === state.currentId; });
 		if (idx < 0) idx = 0;
 		idx = clamp(idx + dir, 0, list.length - 1);
-		openTrack(list[idx].id, false);
+		openTrack(list[idx].id, false, 'open');
 		scrollCurrentIntoView();
 	}
 
@@ -2468,17 +2954,20 @@
 		showToast('Session restored.', 'ok', 1400);
 
 		if (snap.playing) {
-			audio.play().then(function(){
+			playAudioRequest('play', function(){
 				dispatch('a3m:play', { track: currentTrack() });
-			}).catch(function(){
-				showToast('Press play.', 'info', 1200);
 			});
 		}
 	}
 
 	function saveSessionState(){
-		const t = currentTrack();
-		const snap = {
+		let t = null;
+		let snap = null;
+
+		if (state.sessionSaveDisabled) return;
+
+		t = currentTrack();
+		snap = {
 			hash: t ? t.tag : getHashKey(),
 			time: isFinite(audio.currentTime) ? audio.currentTime : 0,
 			playing: audio && !audio.paused ? 1 : 0,
@@ -2941,7 +3430,7 @@
 	function esc(s){
 		return String(s == null ? '' : s)
 			.replace(/&/g, '&amp;')
-			replace(/</g, '&lt;')
+			.replace(/</g, '&lt;')
 			.replace(/>/g, '&gt;')
 			.replace(/"/g, '&quot;');
 	}
