@@ -221,6 +221,7 @@
 		renderShell();
 		audio = dom.audio;
 		bindAudio();
+		bindMediaSession();
 		bindUi();
 		restoreAudioPrefs();
 		rebuildFromCaches();
@@ -231,6 +232,97 @@
 			fail(e);
 		});
 	}
+
+function bindMediaSession(){
+	if (!('mediaSession' in navigator)) return;
+
+	try {
+		navigator.mediaSession.setActionHandler('play', function(){
+			log('mediaSession action: play');
+			toggleTrack();
+		});
+		log('mediaSession handler: play');
+	} catch (e) {
+		err('mediaSession play handler failed', e);
+	}
+
+	try {
+		navigator.mediaSession.setActionHandler('pause', function(){
+			log('mediaSession action: pause');
+			if (!audio.paused) audio.pause();
+		});
+		log('mediaSession handler: pause');
+	} catch (e) {
+		err('mediaSession pause handler failed', e);
+	}
+
+	try {
+		navigator.mediaSession.setActionHandler('nexttrack', function(){
+			log('mediaSession action: nexttrack');
+			nextTrack(1);
+		});
+		log('mediaSession handler: nexttrack');
+	} catch (e) {
+		err('mediaSession nexttrack handler failed', e);
+	}
+
+	try {
+		navigator.mediaSession.setActionHandler('previoustrack', function(){
+			log('mediaSession action: previoustrack');
+			nextTrack(-1);
+		});
+		log('mediaSession handler: previoustrack');
+	} catch (e) {
+		err('mediaSession previoustrack handler failed', e);
+	}
+
+		try {
+		navigator.mediaSession.setActionHandler('seekto', function(details){
+			let pos = details && typeof details.seekTime === 'number'
+				? details.seekTime
+				: NaN;
+
+			log('mediaSession action: seekto', pos, details && details.fastSeek ? 'fast' : '');
+
+			if (!isFinite(pos) || !isFinite(audio.duration) || audio.duration <= 0) return;
+
+			pos = clamp(pos, 0, audio.duration);
+
+			try {
+				if (details && details.fastSeek && typeof audio.fastSeek === 'function') {
+					audio.fastSeek(pos);
+				} else {
+					audio.currentTime = pos;
+				}
+			} catch (e) {
+				audio.currentTime = pos;
+			}
+
+			saveSessionState();
+			paintProgress();
+			syncMediaSessionPosition();
+		});
+		log('mediaSession handler: seekto');
+	} catch (e) {
+		err('mediaSession seekto handler failed', e);
+	}
+
+}
+
+
+function syncMediaSessionPosition(){
+	if (!('mediaSession' in navigator)) return;
+	if (!isFinite(audio.duration) || audio.duration <= 0) return;
+
+	try {
+		navigator.mediaSession.setPositionState({
+			duration: audio.duration,
+			playbackRate: audio.playbackRate || 1,
+			position: clamp(isFinite(audio.currentTime) ? audio.currentTime : 0, 0, audio.duration)
+		});
+	} catch (e) {}
+}
+
 
 	function renderShell(){
 		const root = document.getElementById('a3m-root');
@@ -435,6 +527,29 @@
 			return root.querySelector(sel);
 		}
 	}
+
+
+function syncMediaSession(){
+	const t = currentTrack();
+
+	if (!('mediaSession' in navigator)) return;
+
+	if (!t) {
+		navigator.mediaSession.metadata = null;
+		return;
+	}
+
+	try {
+		navigator.mediaSession.metadata = new MediaMetadata({
+			title: t.title || '',
+			artist: t.artist || '',
+			album: t.album || '',
+			artwork: t.cover ? [
+				{ src: t.cover, sizes: '512x512', type: 'image/webp' }
+			] : []
+		});
+	} catch (e) {}
+}
 
 	function viewButton(view, label){
 		return '<button class="a3m-chip' +
@@ -1978,6 +2093,7 @@ function waitingToastText(){
 		state.currentHash = t.tag;
 		state.error = '';
 		state.downloadOpen = false;
+		syncMediaSession();
 		setTitleState(label);
 		renderStatus();
 		renderCurrent();
@@ -2257,6 +2373,11 @@ function waitingToastText(){
 		saveSessionState();
 		renderStatus();
 
+if ('mediaSession' in navigator) {
+	try {
+		navigator.mediaSession.playbackState = audio.paused ? 'paused' : 'playing';
+	} catch (e) {}
+}
 		if (audio.paused) {
 			setTitleState('pause');
 		} else {
