@@ -93,6 +93,8 @@
 		fullUiHideMs: 2200,
 		fullUiLockHoldMs: 650,
 		miniVolIdleMs: 1000,
+		nextHoldMs: 1000,
+		nextHoldSuppressMs: 1400,
 		failedHashMs: 60 * 1000,
 		githubMinRequestMs: 5000,
 		allowHashMissFallback: 1,
@@ -168,6 +170,10 @@
 		miniVolAction: '',
 		miniVolActionPointerId: null,
 		miniVolSuppressClickAt: 0,
+		randomPlay: savedSession && savedSession.randomPlay ? true : false,
+		nextHoldTimer: 0,
+		nextHoldPointerId: null,
+		nextHoldSuppressClickAt: 0,
 		pressNodes: [],
 		volFocusTimer: 0,
 		firstGestureVisible: !savedSession,
@@ -1040,7 +1046,81 @@ function syncMediaSession(){
 		state.pressNodes = nodes;
 	}
 
+	function nextHoldButtonFromTarget(target){
+		const node = pressTargetElement(target);
+		const btn = node && node.closest ? node.closest('[data-act="next"]') : null;
+		return btn && dom.root && dom.root.contains(btn) ? btn : null;
+	}
+
+	function cancelNextHold(){
+		if (state.nextHoldTimer) clearTimeout(state.nextHoldTimer);
+		state.nextHoldTimer = 0;
+		state.nextHoldPointerId = null;
+	}
+
+	function toggleRandomPlay(){
+		state.randomPlay = !state.randomPlay;
+		state.nextHoldSuppressClickAt = Date.now();
+		saveSessionState();
+		showToast(
+			state.randomPlay ? 'Random play: on.' : 'Random play: off.',
+			'info',
+			1200
+		);
+	}
+
+	function startNextHold(target, pointerId){
+		if (!nextHoldButtonFromTarget(target)) return;
+		cancelNextHold();
+		state.nextHoldPointerId = pointerId;
+		state.nextHoldTimer = setTimeout(function(){
+			state.nextHoldTimer = 0;
+			state.nextHoldPointerId = null;
+			toggleRandomPlay();
+		}, CFG.nextHoldMs);
+	}
+
+	function finishNextHold(pointerId){
+		if (
+			pointerId != null &&
+			state.nextHoldPointerId != null &&
+			pointerId !== state.nextHoldPointerId
+		) {
+			return;
+		}
+		cancelNextHold();
+	}
+
+	function suppressNextClick(){
+		if (
+			state.nextHoldSuppressClickAt &&
+			Date.now() < state.nextHoldSuppressClickAt + CFG.nextHoldSuppressMs
+		) {
+			state.nextHoldSuppressClickAt = 0;
+			return true;
+		}
+		return false;
+	}
+
+	function randomTrackId(list){
+		let idx = -1;
+		let cur = -1;
+
+		if (!list.length) return '';
+		if (list.length === 1) return list[0].id;
+
+		cur = list.findIndex(function(t){
+			return t.id === state.currentId;
+		});
+
+		idx = Math.floor(Math.random() * (list.length - 1));
+		if (cur >= 0 && idx >= cur) idx++;
+
+		return list[idx] && list[idx].id || list[0].id;
+	}
+
 	function onPressWindowBlur(){
+		cancelNextHold();
 		clearPressState();
 		syncVolFocusStateSoon();
 	}
@@ -1048,14 +1128,17 @@ function syncMediaSession(){
 	function onPressPointerDown(e){
 		if (e.button != null && e.button !== 0) return;
 		applyPressState(e.target);
+		startNextHold(e.target, e.pointerId);
 	}
 
-	function onPressPointerEnd(){
+	function onPressPointerEnd(e){
+		finishNextHold(e && e.pointerId);
 		clearPressState();
 		syncVolFocusStateSoon();
 	}
 
 	function onPressPointerCancel(){
+		cancelNextHold();
 		clearPressState();
 		syncVolFocusStateSoon();
 	}
@@ -1063,23 +1146,28 @@ function syncMediaSession(){
 	function onPressMouseDown(e){
 		if (e.button != null && e.button !== 0) return;
 		applyPressState(e.target);
+		startNextHold(e.target, 'mouse');
 	}
 
 	function onPressMouseEnd(){
+		finishNextHold('mouse');
 		clearPressState();
 		syncVolFocusStateSoon();
 	}
 
 	function onPressTouchStart(e){
 		applyPressState(e.target);
+		startNextHold(e.target, null);
 	}
 
 	function onPressTouchEnd(){
+		finishNextHold(null);
 		clearPressState();
 		syncVolFocusStateSoon();
 	}
 
 	function onPressTouchCancel(){
+		cancelNextHold();
 		clearPressState();
 		syncVolFocusStateSoon();
 	}
@@ -1286,7 +1374,8 @@ function playbackIssueText(){
 
 	if (audio.readyState < 3) {
 		if (action === 'next' && next && next.title) {
-			return 'Waiting: next · ' + next.title;
+			
+			return 'Waiting: ' + ( state.randomPlay ? 'rnd-' : '' ) + 'next · ' + next.title;
 		}
 		return title
 			? ('Waiting: ' + title)
@@ -2195,6 +2284,10 @@ function waitingToastText(){
 		const label = dir < 0 ? 'prev' : 'next';
 
 		if (!list.length) return;
+		if (dir > 0 && state.randomPlay) {
+			openTrack(randomTrackId(list), true, label);
+			return;
+		}
 		if (!state.currentId) {
 			openTrack(list[0].id, true, label);
 			return;
@@ -2235,6 +2328,7 @@ function waitingToastText(){
 		act = el.getAttribute('data-act');
 
 		if (act === 'first-gesture') return void useFirstGesture(true);
+		if (act === 'next' && suppressNextClick()) return;
 
 		if (
 			state.firstGestureVisible &&
@@ -2377,6 +2471,7 @@ function waitingToastText(){
 
 	function onVisibility(){
 		if (document.visibilityState === 'hidden') {
+			cancelNextHold();
 			clearPressState();
 			closeMiniVol();
 			cancelFullUiLockHold();
@@ -2387,6 +2482,7 @@ function waitingToastText(){
 	}
 
 	function onPageHide(){
+		cancelNextHold();
 		clearPressState();
 		closeMiniVol();
 		cancelFullUiLockHold();
@@ -3213,6 +3309,7 @@ function cycleMode(){
 		t = currentTrack();
 		snap = {
 			hash: t ? t.tag : getHashKey(),
+			randomPlay: state.randomPlay ? 1 : 0,
 			time: isFinite(audio.currentTime) ? audio.currentTime : 0,
 			playing: audio && !audio.paused ? 1 : 0,
 			volume: audio ? audio.volume : 1,
