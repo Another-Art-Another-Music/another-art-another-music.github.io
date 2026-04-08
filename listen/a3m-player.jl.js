@@ -309,7 +309,6 @@ function bindMediaSession(){
 
 }
 
-
 function syncMediaSessionPosition(){
 	if (!('mediaSession' in navigator)) return;
 	if (!isFinite(audio.duration) || audio.duration <= 0) return;
@@ -322,7 +321,6 @@ function syncMediaSessionPosition(){
 		});
 	} catch (e) {}
 }
-
 
 	function renderShell(){
 		const root = document.getElementById('a3m-root');
@@ -541,9 +539,9 @@ function syncMediaSession(){
 
 	try {
 		navigator.mediaSession.metadata = new MediaMetadata({
-			title: t.title || '',
-			artist: t.artist || '',
-			album: t.album || '',
+			title: ( t.title ) || '',
+			artist: ( /*('[a3m] */'' + t.artist ) || '',
+			album: ( t.album + " /" + t.year) || '',
 			artwork: t.cover ? [
 				{ src: t.cover, sizes: '512x512', type: 'image/webp' }
 			] : []
@@ -1126,8 +1124,17 @@ function syncMediaSession(){
 		audio.addEventListener('ended', onEnded);
 		audio.addEventListener('volumechange', onVolumeState);
 		audio.addEventListener('waiting', function(){
-			showToast(waitingToastText(), 'info', 1600);
+			//showToast(waitingToastText(), 'info', 1600);
+			showToast(playbackIssueText(), 'info', 1800);
 			dispatch('a3m:waiting', { action: state.lastAction || '' });
+		});
+		audio.addEventListener('stalled', function(){
+			showToast(playbackIssueText(), 'error', 2200);
+		});
+		audio.addEventListener('suspend', function(){
+			if (!audio.paused && audio.readyState < 3) {
+				showToast(playbackIssueText(), 'info', 1600);
+			}
 		});
 		audio.addEventListener('canplay', function(){
 			dispatch('a3m:track-ready');
@@ -1255,6 +1262,51 @@ async function resolveStartup(){
 		showToast('Track not found.', 'error', 3600);
 		return false;
 	}
+
+function playbackIssueText(){
+	const t = currentTrack();
+	const title = t && t.title ? t.title : '';
+	const action = state.lastAction || '';
+	const errObj = audio && audio.error;
+	const next = state.tracks && state.tracks.length
+		? state.tracks[(Math.max(0, state.tracks.findIndex(function(x){ return x.id === state.currentId; })) + 1) % state.tracks.length]
+		: null;
+
+	if (errObj) {
+		return title
+			? ('Error: ' + title)
+			: 'Playback error';
+	}
+
+	if (audio.seeking) {
+		return title
+			? ('Seeking: ' + title)
+			: 'Seeking';
+	}
+
+	if (audio.readyState < 3) {
+		if (action === 'next' && next && next.title) {
+			return 'Waiting: next · ' + next.title;
+		}
+		return title
+			? ('Waiting: ' + title)
+			: 'Waiting';
+	}
+
+	if (audio.networkState === audio.NETWORK_LOADING) {
+		return title
+			? ('Loading: ' + title)
+			: 'Loading';
+	}
+
+	if (audio.networkState === audio.NETWORK_IDLE && !audio.paused && audio.readyState < 3) {
+		return title
+			? ('Stalled: ' + title)
+			: 'Stalled';
+	}
+
+	return title || 'Playing';
+}
 
 	function findTrackByHash(key){
 		let i = 0;
@@ -1406,6 +1458,20 @@ async function resolveStartup(){
 		warn('http issue', res.status);
 		const remain = res.headers.get('x-ratelimit-remaining');
 		const reset = res.headers.get('x-ratelimit-reset');
+
+log('http issue state', {
+	status: res.status,
+	hasCache: !!cached,
+	currentId: state.currentId,
+	currentHash: state.currentHash,
+	audioSrc: audio && (audio.currentSrc || audio.src) || ''
+});
+
+				showToast(
+					'Http issue: ' + res.status,
+					5200
+				);
+
 		if (res.status === 403 || res.status === 429) {
 			if (remain === '0' && reset) {
 				const t = new Date(parseInt(reset, 10) * 1000);
